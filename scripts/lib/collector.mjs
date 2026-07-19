@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
+import { foldProgressEvents, progressLookupKeys, readProgressLedger } from "./progress-ledger.mjs";
+
 const DEFAULT_LIMIT = 40;
 const ACTIVE_WINDOW_MS = 45 * 60 * 1000;
 const SESSION_HEAD_BYTES = 32 * 1024;
@@ -13,14 +15,16 @@ export async function collectSnapshot(options = {}) {
   const now = coerceDate(options.now ?? new Date());
   const limit = options.limit ?? DEFAULT_LIMIT;
 
-  const [sessions, commandRecords, automations] = await Promise.all([
+  const [sessions, commandRecords, automations, progressEvents] = await Promise.all([
     collectSessions(codexHome, limit),
     collectCommandRecords(codexHome),
     collectAutomations(codexHome),
+    readProgressLedger({ codexHome }),
   ]);
 
   const commandsByThread = groupLatestCommand(commandRecords);
-  const tasks = sessions.map((session) => normalizeTask(session, commandsByThread.get(session.id), now));
+  const progressReports = foldProgressEvents(progressEvents);
+  const tasks = sessions.map((session) => normalizeTask(session, commandsByThread.get(session.id), now, progressReports));
   const projects = buildProjects(tasks);
   const scheduleRows = buildScheduleRows(projects, automations);
   const selectedTask = tasks[0] ?? null;
@@ -34,6 +38,7 @@ export async function collectSnapshot(options = {}) {
       sessions: sessions.length,
       processRecords: commandRecords.length,
       automations: automations.length,
+      progressReports: progressReports.events.length,
     },
     metrics: {
       runningTasks,
@@ -41,6 +46,7 @@ export async function collectSnapshot(options = {}) {
       totalTasks: tasks.length,
       automationsActive: automations.filter((automation) => automation.status === "ACTIVE").length,
       plannedItems: tasks.reduce((sum, task) => sum + task.planSteps.length, 0),
+      selfReportedTasks: tasks.filter((task) => task.reportSource === "self-reported").length,
     },
     projects,
     tasks,
@@ -281,7 +287,7 @@ async function collectAutomations(codexHome) {
   return automations.sort((a, b) => String(a.nextLabel).localeCompare(String(b.nextLabel)));
 }
 
-function normalizeTask(session, latestCommand, now) {
+function normalizeTask(session, latestCommand, now, progressReports) {
   const ageMs = now - session.updatedAt;
   const hasRunningCommand = Boolean(latestCommand?.processId || latestCommand?.osPid);
   const status = hasRunningCommand || ageMs <= ACTIVE_WINDOW_MS
@@ -291,7 +297,7 @@ function normalizeTask(session, latestCommand, now) {
       : "attention";
   const planSteps = inferPlanSteps(session, latestCommand, status);
 
-  return {
+  const task = {
     id: session.id,
     title: session.title,
     cwd: session.cwd,
@@ -308,6 +314,45 @@ function normalizeTask(session, latestCommand, now) {
     progress: progressForTask(session, status, planSteps),
     planSteps,
     goal: inferGoal(session),
+  };
+
+  return mergeProgressReport(task, reportForTask(task, progressReports), now);
+}
+
+function reportForTask(task, progressReports) {
+  if (!progressReports) return null;
+  const keys = progressLookupKeys(task);
+  return progressReports.byThreadId.get(keys.threadId)
+    ?? progressReports.byProjectTaskKey.get(keys.projectTaskKey)
+    ?? null;
+}
+
+function mergeProgressReport(task, report, now) {
+  if (!report) {
+    return {
+      ...task,
+      reportSource: "inferred",
+      reportFreshness: "inferred",
+      lastReportAt: null,
+      reportedStatus: "",
+      confirmation: null,
+    };
+  }
+
+  const status = statusFromReport(report.status, task.status);
+  return {
+    ...task,
+    status,
+    statusLabel: statusLabel(status, report.status),
+    reportSource: "self-reported",
+    reportFreshness: freshnessForReport(report, now),
+    lastReportAt: report.lastReportAt,
+    reportedStatus: report.status || "",
+    goal: report.goal || task.goal,
+    planSteps: report.plan?.length ? report.plan : task.planSteps,
+    progress: report.progress ?? task.progress,
+    latestHeartbeat: report.summary || task.latestHeartbeat,
+    confirmation: report.confirmation ?? null,
   };
 }
 
@@ -440,7 +485,30 @@ function fallbackTitle(cwd, id) {
   return projectName(cwd) !== "Unknown project" ? projectName(cwd) : id;
 }
 
-function statusLabel(status) {
+function statusFromReport(reportedStatus, inferredStatus) {
+  if (reportedStatus === "blocked" || reportedStatus === "waiting") return "attention";
+  if (reportedStatus === "completed" || reportedStatus === "failed") return "idle";
+  if (reportedStatus === "planning" || reportedStatus === "running" || reportedStatus === "verifying") return "running";
+  return inferredStatus;
+}
+
+function freshnessForReport(report, now) {
+  if (report.status === "completed" || report.status === "failed") return "complete";
+  const reportedAt = coerceDate(report.lastReportAt);
+  if (!reportedAt) return "unknown";
+  const ageMs = Math.max(0, now - reportedAt);
+  if (ageMs <= 45 * 60 * 1000) return "fresh";
+  if (ageMs <= 3 * 60 * 60 * 1000) return "quiet";
+  return "stale";
+}
+
+function statusLabel(status, reportedStatus = "") {
+  if (reportedStatus === "planning") return "计划中";
+  if (reportedStatus === "waiting") return "待回复";
+  if (reportedStatus === "blocked") return "需确认";
+  if (reportedStatus === "verifying") return "验证中";
+  if (reportedStatus === "completed") return "已完成";
+  if (reportedStatus === "failed") return "失败";
   return status === "running" ? "执行中" : status === "attention" ? "需关注" : "空闲";
 }
 

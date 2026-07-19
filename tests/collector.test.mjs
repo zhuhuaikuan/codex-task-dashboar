@@ -31,12 +31,23 @@ describe("collector", () => {
     assert.equal(novelTask.projectName, "小说流水线");
     assert.equal(novelTask.latestCommand, "scripts\\Invoke-FanqieDailyUpload.ps1 -DryRun");
     assert.equal(novelTask.status, "running");
-    assert.match(novelTask.latestHeartbeat, /dry-run/);
+    assert.equal(novelTask.reportSource, "self-reported");
+    assert.equal(novelTask.reportFreshness, "fresh");
+    assert.equal(novelTask.lastReportAt, "2026-07-19T08:55:00.000Z");
+    assert.equal(novelTask.goal, "Finish lightweight reporting");
+    assert.equal(novelTask.progress, 88);
+    assert.equal(novelTask.latestHeartbeat, "Self-reported checkpoint from the progress ledger.");
+    assert.deepEqual(novelTask.planSteps, [
+      { id: "step-1", label: "Create the progress ledger", state: "done" },
+      { id: "step-2", label: "Merge report state into snapshots", state: "current" },
+    ]);
 
     const packagingTask = snapshot.tasks.find((task) => task.id === "thread-b");
     assert.equal(packagingTask.status, "running");
+    assert.equal(packagingTask.reportSource, "inferred");
 
     assert.equal(snapshot.scheduleRows.length, 2);
     assert.equal(snapshot.automations[0].name, "小说流水线每日上传复核");
+    assert.equal(snapshot.metrics.selfReportedTasks, 1);
   });
 });
