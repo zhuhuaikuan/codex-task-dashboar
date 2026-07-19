@@ -55,4 +55,17 @@ describe("server", () => {
       assert.match(html, /data-dashboard-shell/);
     });
   });
+
+  it("serves a viewport-filling dashboard layout", async () => {
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/`);
+      const html = await response.text();
+
+      assert.equal(response.status, 200);
+      assert.match(html, /--ctd-page-pad/);
+      assert.match(html, /width:\s*100vw/);
+      assert.match(html, /height:\s*calc\(100vh - \(var\(--ctd-page-pad\) \* 2\)\)/);
+      assert.match(html, /grid-template-rows:\s*132px 64px auto 1fr/);
+    });
+  });
 });

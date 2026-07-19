@@ -11,6 +11,11 @@
       min-height: 100%;
       background: #f6f7f3;
     }
+
+    body {
+      min-height: 100vh;
+      overflow: auto;
+    }
   </style>
 </head>
 <body>
@@ -36,16 +41,19 @@
       --ctd-violet: #7460a8;
       --ctd-violet-soft: #ece7f7;
       --ctd-ink: #11130f;
+      --ctd-page-pad: clamp(14px, 1.4vw, 26px);
+      --ctd-page-gap: clamp(28px, 2.8vw, 52px);
       color: var(--ctd-text);
       background:
         linear-gradient(180deg, rgba(255,255,255,.72), rgba(246,247,243,.9)),
         radial-gradient(circle at 16% 12%, rgba(47,138,91,.08), transparent 32%),
         var(--ctd-bg);
       font-family: Inter, "Segoe UI", Arial, sans-serif;
-      width: 1440px;
-      min-height: 980px;
+      width: 100vw;
+      min-width: 1280px;
+      min-height: 100vh;
       box-sizing: border-box;
-      padding: 26px;
+      padding: var(--ctd-page-pad);
       letter-spacing: 0;
     }
 
@@ -54,7 +62,9 @@
     }
 
     #codex-task-dashboard-mockup .ctd-app {
-      height: 928px;
+      height: calc(100vh - (var(--ctd-page-pad) * 2));
+      height: calc(100vh - var(--ctd-page-gap));
+      min-height: 820px;
       border: 1px solid var(--ctd-line);
       background: var(--ctd-panel);
       display: grid;
@@ -65,7 +75,7 @@
 
     #codex-task-dashboard-mockup .ctd-topbar {
       display: grid;
-      grid-template-columns: 276px 1fr 330px;
+      grid-template-columns: 284px minmax(560px, 1fr) minmax(258px, 360px);
       align-items: center;
       gap: 18px;
       padding: 14px 20px;
@@ -196,7 +206,7 @@
 
     #codex-task-dashboard-mockup .ctd-body {
       display: grid;
-      grid-template-columns: 270px 1fr 344px;
+      grid-template-columns: 300px minmax(0, 1fr) 360px;
       min-height: 0;
     }
 
@@ -223,8 +233,16 @@
       min-width: 0;
       min-height: 0;
       display: grid;
-      grid-template-rows: 144px 76px 1fr 292px;
+      grid-template-rows: 132px 64px auto 1fr;
       background: var(--ctd-panel);
+    }
+
+    #codex-task-dashboard-mockup .ctd-main > .ctd-section {
+      padding: 12px 18px 8px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-main > .ctd-section .ctd-section-title {
+      margin-bottom: 0;
     }
 
     #codex-task-dashboard-mockup .ctd-section {
@@ -285,17 +303,17 @@
     #codex-task-dashboard-mockup .ctd-stats {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      padding: 18px 18px 14px;
+      gap: 10px;
+      padding: 14px 18px 12px;
       border-bottom: 1px solid var(--ctd-line);
       background: linear-gradient(180deg, #fffefa, #fafbf5);
     }
 
     #codex-task-dashboard-mockup .ctd-stat {
-      min-height: 104px;
+      min-height: 92px;
       border: 1px solid var(--ctd-line);
       background: var(--ctd-panel);
-      padding: 14px;
+      padding: 12px;
       display: grid;
       align-content: space-between;
     }
@@ -309,7 +327,7 @@
     }
 
     #codex-task-dashboard-mockup .ctd-stat-value {
-      font-size: 31px;
+      font-size: 29px;
       line-height: 1;
       font-weight: 720;
       color: var(--ctd-text);
@@ -359,7 +377,7 @@
 
     #codex-task-dashboard-mockup .ctd-project-list {
       padding: 12px;
-      overflow: hidden;
+      overflow: auto;
     }
 
     #codex-task-dashboard-mockup .ctd-project {
@@ -438,9 +456,11 @@
     }
 
     #codex-task-dashboard-mockup .ctd-live-table-wrap {
-      padding: 0 18px 18px;
+      align-self: start;
+      padding: 0 18px 14px;
       min-height: 0;
-      overflow: hidden;
+      max-height: clamp(160px, 28vh, 340px);
+      overflow: auto;
     }
 
     #codex-task-dashboard-mockup .ctd-live-table {
@@ -453,7 +473,7 @@
 
     #codex-task-dashboard-mockup .ctd-live-table th,
     #codex-task-dashboard-mockup .ctd-live-table td {
-      padding: 12px 12px;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--ctd-line);
       text-align: left;
       vertical-align: middle;
@@ -533,6 +553,8 @@
       padding: 12px 18px 12px;
       background: #fbfcf7;
       min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
     }
 
     #codex-task-dashboard-mockup .ctd-timeline-head {
@@ -548,6 +570,8 @@
     #codex-task-dashboard-mockup .ctd-schedule {
       border: 1px solid var(--ctd-line);
       background: var(--ctd-panel);
+      min-height: 0;
+      overflow: auto;
     }
 
     #codex-task-dashboard-mockup .ctd-lane {
@@ -638,7 +662,7 @@
 
     #codex-task-dashboard-mockup .ctd-right-scroll {
       min-height: 0;
-      overflow: hidden;
+      overflow: auto;
       padding: 16px 18px;
       display: grid;
       gap: 14px;
@@ -740,6 +764,25 @@
     #codex-task-dashboard-mockup .ctd-rule {
       height: 1px;
       background: var(--ctd-line);
+    }
+
+    @media (max-width: 1320px) {
+      #codex-task-dashboard-mockup {
+        --ctd-page-pad: 12px;
+        --ctd-page-gap: 24px;
+      }
+
+      #codex-task-dashboard-mockup .ctd-topbar {
+        grid-template-columns: 260px minmax(480px, 1fr) 300px;
+      }
+
+      #codex-task-dashboard-mockup .ctd-search {
+        min-width: 260px;
+      }
+
+      #codex-task-dashboard-mockup .ctd-body {
+        grid-template-columns: 270px minmax(0, 1fr) 330px;
+      }
     }
   </style>
 
