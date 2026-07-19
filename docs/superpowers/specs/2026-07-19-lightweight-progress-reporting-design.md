@@ -27,6 +27,13 @@ The user-facing distinction is:
 - `inferred`: the dashboard estimated state from session logs and commands.
 - `stale report`: the task has a report, but no meaningful update has arrived
   for a soft freshness window.
+- `needs confirmation`: the task history contains a point where Codex needs the
+  user to reply, approve, choose, or provide missing input before progress can
+  continue.
+
+The main dashboard should include a compact confirmation queue. The selected
+task inspector should also show the latest relevant confirmation point near the
+attention block, with enough context for the user to know what needs a reply.
 
 ## Reporting Ledger
 
@@ -56,6 +63,12 @@ Event schema:
   "summary": "Short human-readable progress note.",
   "progress": 55,
   "currentStepId": "step-2",
+  "needsConfirmation": false,
+  "confirmationType": "approval | choice | clarification | permission | credentials | review | other",
+  "confirmationPrompt": "Short question or decision that needs the user's reply.",
+  "confirmationChoices": ["Approve", "Revise"],
+  "confirmationResolvedAt": null,
+  "confirmationResolution": "",
   "plan": [
     { "id": "step-1", "label": "Define ledger schema", "state": "done" },
     { "id": "step-2", "label": "Merge reports into snapshots", "state": "current" }
@@ -76,13 +89,62 @@ Codex should write a report only at meaningful state changes:
 - Plan changes: replace the reported plan with the current plan.
 - Step transition: mark completed/current steps and update `currentStepId`.
 - User attention needed: set `status: "blocked"` or `status: "waiting"` and
-  `needsUser: true`.
+  `needsUser: true`. If the attention point requires a direct user reply, also
+  set `needsConfirmation: true`, `confirmationType`, and a short
+  `confirmationPrompt`.
+- Confirmation resolved: write a follow-up report with
+  `needsConfirmation: false`, `confirmationResolvedAt`, and a short
+  `confirmationResolution`.
 - Verification: set `status: "verifying"` and summarize the checks.
 - Completion: set `status: "completed"` and `progress: 100`.
 - Failure or abandonment: set `status: "failed"` with a short reason.
 
 Reports should stay short. They must not dump long command output, secrets,
 private file contents, or unnecessary raw logs into the ledger.
+
+## Confirmation Points From History
+
+The dashboard should surface confirmation points from both active reports and
+historical session records.
+
+Active reports are authoritative. If a report says `needsConfirmation: true`,
+the task should be shown in the confirmation queue until a newer report marks
+the confirmation resolved or the task is completed/failed.
+
+Historical inference is a fallback. While parsing session history, the collector
+should look for recent assistant messages that clearly ask for user action, such
+as:
+
+- approval before proceeding with a risky or external action;
+- a choice among options;
+- clarification that blocks implementation;
+- permission to upload, submit, install, delete, push, publish, or expose data;
+- review of a generated spec before implementation continues.
+
+The collector should store a short excerpt, timestamp, and inferred type. If a
+later user message exists after the confirmation request, mark the confirmation
+as `answered` rather than `open`. If the task later reports `completed` or
+`failed`, mark older inferred confirmations as `superseded`.
+
+Do not treat every assistant question as a blocking confirmation. Prefer high
+precision over high recall. The initial implementation should recognize clear
+patterns and explicit progress reports first, then expand cautiously.
+
+Confirmation state model:
+
+- `open`: still appears to need the user's reply.
+- `answered`: a later user message likely responded.
+- `resolved`: an explicit report marked it resolved.
+- `superseded`: the task moved past the point or completed.
+
+UI placement:
+
+- Add a top metric for confirmation items or fold them into the existing
+  attention metric with a visible `needs confirmation` label.
+- Add a compact "待确认" list in the center or right inspector showing task,
+  prompt excerpt, age, and status.
+- In the selected task inspector, show the latest confirmation prompt above the
+  goal/plan blocks when it is open or recently answered.
 
 ## Components
 
@@ -92,7 +154,7 @@ Add a small reporting helper in implementation:
 - `scripts/lib/progress-ledger.mjs`: parses, validates, and folds progress
   events into per-task state.
 - `scripts/lib/collector.mjs`: merges folded progress state into inferred task
-  snapshots.
+  snapshots and extracts confirmation points from recent session history.
 - `skills/task-dashboard/SKILL.md`: tells Codex how and when to report progress
   when the dashboard plugin is being used.
 
@@ -113,12 +175,15 @@ arrays.
    `progress.jsonl`.
 3. `/api/snapshot` reads sessions, commands, automations, and folded progress
    reports.
-4. The collector matches a report to a task.
-5. Reported fields override inferred fields when the report is newer than the
+4. The collector also extracts confirmation points from recent session history.
+5. The collector matches reports and confirmation points to tasks.
+6. Reported fields override inferred fields when the report is newer than the
    inferred session update or when it explicitly marks waiting, blocked,
    verifying, completed, or failed.
-6. The dashboard renders the merged task with a source badge and last report
-   age.
+7. Confirmation points are attached to the task and summarized into a dashboard
+   confirmation queue.
+8. The dashboard renders the merged task with a source badge, last report age,
+   and confirmation state.
 
 ## Freshness
 
@@ -153,6 +218,10 @@ Add focused tests for:
   snapshot.
 - Falling back to existing inference when no report exists.
 - Skipping corrupt ledger lines without failing `/api/snapshot`.
+- Extracting open confirmation points from clear assistant requests.
+- Marking inferred confirmation points as answered when a later user message
+  exists.
+- Rendering confirmation counts and selected-task confirmation details.
 
 ## Acceptance Criteria
 
@@ -161,6 +230,10 @@ Add focused tests for:
 - The dashboard shows reported goal, plan, status, progress, and last report age
   when available.
 - The dashboard clearly labels self-reported state versus inferred state.
+- The dashboard exposes confirmation points that need user replies instead of
+  burying them inside heartbeat history.
+- Historical confirmation points are shown with `open`, `answered`, `resolved`,
+  or `superseded` state.
 - `npm test` passes.
 - The implementation does not require a long-running extra service beyond the
   existing dashboard server.
