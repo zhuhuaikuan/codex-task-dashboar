@@ -27,9 +27,10 @@ export async function collectSnapshot(options = {}) {
   const tasks = sessions.map((session) => normalizeTask(session, commandsByThread.get(session.id), now, progressReports));
   const projects = buildProjects(tasks);
   const scheduleRows = buildScheduleRows(projects, automations);
+  const confirmationQueue = buildConfirmationQueue(tasks);
   const selectedTask = tasks[0] ?? null;
   const runningTasks = tasks.filter((task) => task.status === "running").length;
-  const attentionTasks = tasks.filter((task) => task.status === "attention").length;
+  const attentionTasks = tasks.filter((task) => task.status === "attention" || task.confirmation?.state === "open").length;
 
   return {
     generatedAt: now.toISOString(),
@@ -47,12 +48,14 @@ export async function collectSnapshot(options = {}) {
       automationsActive: automations.filter((automation) => automation.status === "ACTIVE").length,
       plannedItems: tasks.reduce((sum, task) => sum + task.planSteps.length, 0),
       selfReportedTasks: tasks.filter((task) => task.reportSource === "self-reported").length,
+      confirmationTasks: confirmationQueue.filter((item) => item.state === "open").length,
     },
     projects,
     tasks,
     selectedTask,
     scheduleRows,
     automations,
+    confirmationQueue,
   };
 }
 
@@ -71,6 +74,7 @@ export async function parseSessionFile(filePath, options = {}) {
     latestPhase: "",
     latestTool: "none",
     toolStatus: "idle",
+    confirmations: [],
     filePath,
   };
 
@@ -102,6 +106,7 @@ export async function parseSessionFile(filePath, options = {}) {
       if (textValue && !textValue.startsWith("<environment_context>") && !session.title) {
         session.title = compact(textValue, 56);
       }
+      if (timestamp) markConfirmationsAnswered(session.confirmations, timestamp);
       continue;
     }
 
@@ -110,6 +115,8 @@ export async function parseSessionFile(filePath, options = {}) {
       if (textValue) {
         session.latestHeartbeat = compact(textValue, 180);
         session.latestPhase = payload.phase ?? session.latestPhase;
+        const confirmation = extractConfirmationPoint(textValue, timestamp);
+        if (confirmation) session.confirmations.push(confirmation);
       }
       continue;
     }
@@ -118,6 +125,8 @@ export async function parseSessionFile(filePath, options = {}) {
       if (payload.message) {
         session.latestHeartbeat = compact(payload.message, 180);
         session.latestPhase = payload.phase ?? session.latestPhase;
+        const confirmation = extractConfirmationPoint(payload.message, timestamp);
+        if (confirmation) session.confirmations.push(confirmation);
       }
       continue;
     }
@@ -138,6 +147,7 @@ export async function parseSessionFile(filePath, options = {}) {
   session.projectName = projectName(session.cwd);
   session.createdAt ??= stat.birthtime;
   session.updatedAt ??= stat.mtime;
+  if (session.latestPhase === "final_answer") supersedeOpenConfirmations(session.confirmations, session.updatedAt);
   return session;
 }
 
@@ -314,6 +324,7 @@ function normalizeTask(session, latestCommand, now, progressReports) {
     progress: progressForTask(session, status, planSteps),
     planSteps,
     goal: inferGoal(session),
+    confirmation: latestConfirmation(session.confirmations),
   };
 
   return mergeProgressReport(task, reportForTask(task, progressReports), now);
@@ -335,7 +346,7 @@ function mergeProgressReport(task, report, now) {
       reportFreshness: "inferred",
       lastReportAt: null,
       reportedStatus: "",
-      confirmation: null,
+      confirmation: task.confirmation ?? null,
     };
   }
 
@@ -352,7 +363,7 @@ function mergeProgressReport(task, report, now) {
     planSteps: report.plan?.length ? report.plan : task.planSteps,
     progress: report.progress ?? task.progress,
     latestHeartbeat: report.summary || task.latestHeartbeat,
-    confirmation: report.confirmation ?? null,
+    confirmation: report.confirmation ?? task.confirmation ?? null,
   };
 }
 
@@ -374,7 +385,7 @@ function buildProjects(tasks) {
     const project = grouped.get(key);
     project.tasks.push(task.id);
     if (task.status === "running") project.running += 1;
-    if (task.status === "attention") project.attention += 1;
+    if (task.status === "attention" || task.confirmation?.state === "open") project.attention += 1;
     if (task.updatedAt > project.updatedAt) project.updatedAt = task.updatedAt;
   }
   return [...grouped.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -405,6 +416,26 @@ function buildScheduleRows(projects, automations) {
     }
   }
   return rows;
+}
+
+function buildConfirmationQueue(tasks) {
+  return tasks
+    .filter((task) => task.confirmation)
+    .map((task) => ({
+      taskId: task.id,
+      taskTitle: task.title,
+      projectName: task.projectName,
+      state: task.confirmation.state,
+      type: task.confirmation.type,
+      prompt: task.confirmation.prompt,
+      createdAt: task.confirmation.createdAt,
+      resolvedAt: task.confirmation.resolvedAt ?? null,
+      source: task.confirmation.source,
+    }))
+    .sort((a, b) => {
+      const stateRank = (value) => value === "open" ? 0 : value === "answered" ? 1 : 2;
+      return stateRank(a.state) - stateRank(b.state) || String(b.createdAt).localeCompare(String(a.createdAt));
+    });
 }
 
 function groupLatestCommand(records) {
@@ -458,6 +489,59 @@ function messageText(payload) {
     .map((part) => part.text ?? part.message ?? "")
     .join(" ")
     .trim();
+}
+
+function extractConfirmationPoint(text, timestamp) {
+  const type = confirmationType(text);
+  if (!type) return null;
+  return {
+    state: "open",
+    type,
+    prompt: compact(text, 180),
+    choices: [],
+    createdAt: (timestamp ?? new Date()).toISOString(),
+    resolvedAt: null,
+    resolution: "",
+    source: "inferred",
+  };
+}
+
+function confirmationType(text) {
+  const lower = String(text ?? "").toLowerCase();
+  const explicit = /please\s+(review|approve|confirm|choose|select)|let me know if|before (i|we) (continue|proceed)|need your|requires? your|请.*(确认|批准|选择|审阅|审核|回复|授权)|是否(继续|同意|确认)|需要你|等待你/.test(lower);
+  if (!explicit) return "";
+  if (/review|审阅|审核|spec|design doc|implementation plan|计划文档|设计文档/.test(lower)) return "review";
+  if (/approve|approval|批准|同意/.test(lower)) return "approval";
+  if (/permission|authorize|授权|upload|submit|install|delete|push|publish|expose/.test(lower)) return "permission";
+  if (/choose|select|option|which|选择|方案|哪一个/.test(lower)) return "choice";
+  if (/clarify|clarification|missing|补充|说明|澄清/.test(lower)) return "clarification";
+  if (/credential|password|token|api key|login|凭证|密码|密钥|登录/.test(lower)) return "credentials";
+  return "other";
+}
+
+function markConfirmationsAnswered(confirmations, userTimestamp) {
+  for (const confirmation of confirmations) {
+    const createdAt = coerceDate(confirmation.createdAt);
+    if (confirmation.state === "open" && createdAt && userTimestamp > createdAt) {
+      confirmation.state = "answered";
+      confirmation.resolvedAt = userTimestamp.toISOString();
+      confirmation.resolution = "A later user message likely answered this request.";
+    }
+  }
+}
+
+function supersedeOpenConfirmations(confirmations, resolvedAt) {
+  for (const confirmation of confirmations) {
+    if (confirmation.state === "open") {
+      confirmation.state = "superseded";
+      confirmation.resolvedAt = resolvedAt.toISOString();
+      confirmation.resolution = "The task reached a final answer after this request.";
+    }
+  }
+}
+
+function latestConfirmation(confirmations = []) {
+  return confirmations.length ? confirmations[confirmations.length - 1] : null;
 }
 
 function compact(text, maxLength) {
