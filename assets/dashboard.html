@@ -1,0 +1,1063 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Codex 任务总览</title>
+</head>
+<body>
+<div id="codex-task-dashboard-mockup" class="ctd-shell" role="application" aria-label="Codex multi-project task dashboard">
+  <style>
+    #codex-task-dashboard-mockup {
+      --ctd-bg: #f6f7f3;
+      --ctd-panel: #fffefa;
+      --ctd-panel-2: #fdf8ef;
+      --ctd-text: #22251f;
+      --ctd-muted: #686f62;
+      --ctd-faint: #9aa18f;
+      --ctd-line: #d9ddcf;
+      --ctd-line-strong: #c2c9b7;
+      --ctd-green: #2f8a5b;
+      --ctd-green-soft: #dff2e8;
+      --ctd-blue: #3579a8;
+      --ctd-blue-soft: #dfeef8;
+      --ctd-amber: #b66f16;
+      --ctd-amber-soft: #f7ead2;
+      --ctd-red: #bd3d35;
+      --ctd-red-soft: #f5dedb;
+      --ctd-violet: #7460a8;
+      --ctd-violet-soft: #ece7f7;
+      --ctd-ink: #11130f;
+      color: var(--ctd-text);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.72), rgba(246,247,243,.9)),
+        radial-gradient(circle at 16% 12%, rgba(47,138,91,.08), transparent 32%),
+        var(--ctd-bg);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      width: 1440px;
+      min-height: 980px;
+      box-sizing: border-box;
+      padding: 26px;
+      letter-spacing: 0;
+    }
+
+    #codex-task-dashboard-mockup * {
+      box-sizing: border-box;
+    }
+
+    #codex-task-dashboard-mockup .ctd-app {
+      height: 928px;
+      border: 1px solid var(--ctd-line);
+      background: var(--ctd-panel);
+      display: grid;
+      grid-template-rows: 72px 1fr;
+      box-shadow: 0 24px 80px rgba(46, 53, 39, .14);
+      overflow: hidden;
+    }
+
+    #codex-task-dashboard-mockup .ctd-topbar {
+      display: grid;
+      grid-template-columns: 276px 1fr 330px;
+      align-items: center;
+      gap: 18px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--ctd-line);
+      background: rgba(255, 254, 250, .96);
+    }
+
+    #codex-task-dashboard-mockup .ctd-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    #codex-task-dashboard-mockup .ctd-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      background: var(--ctd-ink);
+      color: #fffefa;
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-title {
+      font-size: 18px;
+      line-height: 1.1;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    #codex-task-dashboard-mockup .ctd-subtitle,
+    #codex-task-dashboard-mockup .ctd-small,
+    #codex-task-dashboard-mockup .ctd-meta {
+      color: var(--ctd-muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    #codex-task-dashboard-mockup .ctd-command {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    #codex-task-dashboard-mockup .ctd-search {
+      height: 42px;
+      flex: 1;
+      min-width: 340px;
+      border: 1px solid var(--ctd-line);
+      background: #fbfcf7;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      color: var(--ctd-muted);
+      font-size: 13px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-kbd {
+      margin-left: auto;
+      color: var(--ctd-faint);
+      border: 1px solid var(--ctd-line);
+      padding: 3px 7px;
+      font-size: 11px;
+      background: var(--ctd-panel);
+    }
+
+    #codex-task-dashboard-mockup .ctd-toggle {
+      display: inline-flex;
+      border: 1px solid var(--ctd-line-strong);
+      background: #f5f6ef;
+      height: 38px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-toggle span {
+      min-width: 58px;
+      display: grid;
+      place-items: center;
+      padding: 0 10px;
+      font-size: 12px;
+      color: var(--ctd-muted);
+    }
+
+    #codex-task-dashboard-mockup .ctd-toggle .active {
+      background: var(--ctd-ink);
+      color: #fffefa;
+    }
+
+    #codex-task-dashboard-mockup .ctd-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-icon-btn,
+    #codex-task-dashboard-mockup .ctd-primary {
+      height: 38px;
+      border: 1px solid var(--ctd-line);
+      background: #fbfcf7;
+      color: var(--ctd-text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 560;
+    }
+
+    #codex-task-dashboard-mockup .ctd-icon-btn {
+      width: 38px;
+      padding: 0;
+      color: var(--ctd-muted);
+    }
+
+    #codex-task-dashboard-mockup .ctd-primary {
+      background: var(--ctd-ink);
+      color: #fffefa;
+      border-color: var(--ctd-ink);
+    }
+
+    #codex-task-dashboard-mockup .ctd-body {
+      display: grid;
+      grid-template-columns: 270px 1fr 344px;
+      min-height: 0;
+    }
+
+    #codex-task-dashboard-mockup .ctd-left,
+    #codex-task-dashboard-mockup .ctd-right {
+      min-height: 0;
+      overflow: hidden;
+      background: #fafbf5;
+    }
+
+    #codex-task-dashboard-mockup .ctd-left {
+      border-right: 1px solid var(--ctd-line);
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+    }
+
+    #codex-task-dashboard-mockup .ctd-right {
+      border-left: 1px solid var(--ctd-line);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    #codex-task-dashboard-mockup .ctd-main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 144px 76px 1fr 292px;
+      background: var(--ctd-panel);
+    }
+
+    #codex-task-dashboard-mockup .ctd-section {
+      padding: 18px;
+      border-bottom: 1px solid var(--ctd-line);
+    }
+
+    #codex-task-dashboard-mockup .ctd-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    #codex-task-dashboard-mockup h2,
+    #codex-task-dashboard-mockup h3 {
+      margin: 0;
+      font-weight: 650;
+      color: var(--ctd-text);
+      letter-spacing: 0;
+    }
+
+    #codex-task-dashboard-mockup h2 {
+      font-size: 15px;
+    }
+
+    #codex-task-dashboard-mockup h3 {
+      font-size: 13px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 24px;
+      padding: 4px 8px;
+      border: 1px solid var(--ctd-line);
+      background: var(--ctd-panel);
+      color: var(--ctd-muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    #codex-task-dashboard-mockup .ctd-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ctd-green);
+      display: inline-block;
+    }
+
+    #codex-task-dashboard-mockup .ctd-dot.amber { background: var(--ctd-amber); }
+    #codex-task-dashboard-mockup .ctd-dot.blue { background: var(--ctd-blue); }
+    #codex-task-dashboard-mockup .ctd-dot.red { background: var(--ctd-red); }
+    #codex-task-dashboard-mockup .ctd-dot.violet { background: var(--ctd-violet); }
+
+    #codex-task-dashboard-mockup .ctd-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--ctd-line);
+      background: linear-gradient(180deg, #fffefa, #fafbf5);
+    }
+
+    #codex-task-dashboard-mockup .ctd-stat {
+      min-height: 104px;
+      border: 1px solid var(--ctd-line);
+      background: var(--ctd-panel);
+      padding: 14px;
+      display: grid;
+      align-content: space-between;
+    }
+
+    #codex-task-dashboard-mockup .ctd-stat-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--ctd-muted);
+      font-size: 12px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-stat-value {
+      font-size: 31px;
+      line-height: 1;
+      font-weight: 720;
+      color: var(--ctd-text);
+      letter-spacing: 0;
+    }
+
+    #codex-task-dashboard-mockup .ctd-stat-note {
+      font-size: 12px;
+      color: var(--ctd-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-stat.live {
+      border-color: rgba(47, 138, 91, .38);
+      background: linear-gradient(180deg, #fffefa, var(--ctd-green-soft));
+    }
+
+    #codex-task-dashboard-mockup .ctd-stat.warn {
+      border-color: rgba(182, 111, 22, .36);
+      background: linear-gradient(180deg, #fffefa, var(--ctd-amber-soft));
+    }
+
+    #codex-task-dashboard-mockup .ctd-project-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--ctd-line);
+    }
+
+    #codex-task-dashboard-mockup .ctd-project-tabs span {
+      flex: 1;
+      text-align: center;
+      padding: 8px 6px;
+      border: 1px solid var(--ctd-line);
+      background: var(--ctd-panel);
+      color: var(--ctd-muted);
+      font-size: 12px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-project-tabs .active {
+      color: #fffefa;
+      background: var(--ctd-ink);
+      border-color: var(--ctd-ink);
+    }
+
+    #codex-task-dashboard-mockup .ctd-project-list {
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    #codex-task-dashboard-mockup .ctd-project {
+      padding: 13px 12px;
+      border: 1px solid transparent;
+      display: grid;
+      gap: 8px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-project + .ctd-project {
+      margin-top: 8px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-project.active {
+      border-color: var(--ctd-line-strong);
+      background: var(--ctd-panel);
+      box-shadow: inset 3px 0 0 var(--ctd-green);
+    }
+
+    #codex-task-dashboard-mockup .ctd-project-row,
+    #codex-task-dashboard-mockup .ctd-row-between {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    #codex-task-dashboard-mockup .ctd-project-name {
+      font-size: 13px;
+      font-weight: 620;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #codex-task-dashboard-mockup .ctd-path {
+      color: var(--ctd-muted);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #codex-task-dashboard-mockup .ctd-mini-bars {
+      display: grid;
+      grid-template-columns: 1.4fr .6fr .35fr;
+      gap: 3px;
+      height: 6px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-mini-bars span:nth-child(1) { background: var(--ctd-green); }
+    #codex-task-dashboard-mockup .ctd-mini-bars span:nth-child(2) { background: var(--ctd-blue); }
+    #codex-task-dashboard-mockup .ctd-mini-bars span:nth-child(3) { background: var(--ctd-amber); }
+
+    #codex-task-dashboard-mockup .ctd-left-footer {
+      padding: 14px 16px;
+      border-top: 1px solid var(--ctd-line);
+      display: grid;
+      gap: 10px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-health {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--ctd-muted);
+    }
+
+    #codex-task-dashboard-mockup .ctd-live-table-wrap {
+      padding: 0 18px 18px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    #codex-task-dashboard-mockup .ctd-live-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 12px;
+      border: 1px solid var(--ctd-line);
+    }
+
+    #codex-task-dashboard-mockup .ctd-live-table th,
+    #codex-task-dashboard-mockup .ctd-live-table td {
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--ctd-line);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    #codex-task-dashboard-mockup .ctd-live-table th {
+      color: var(--ctd-muted);
+      background: #fafbf5;
+      font-weight: 560;
+      font-size: 11px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-live-table tr.selected {
+      background: var(--ctd-green-soft);
+      box-shadow: inset 3px 0 0 var(--ctd-green);
+    }
+
+    #codex-task-dashboard-mockup .ctd-thread-title {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    #codex-task-dashboard-mockup .ctd-thread-title strong {
+      font-size: 13px;
+      font-weight: 620;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #codex-task-dashboard-mockup .ctd-thread-title span {
+      color: var(--ctd-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #codex-task-dashboard-mockup .ctd-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      font-size: 11px;
+      border: 1px solid var(--ctd-line);
+      background: var(--ctd-panel);
+      white-space: nowrap;
+    }
+
+    #codex-task-dashboard-mockup .ctd-status.run { border-color: rgba(47,138,91,.36); background: var(--ctd-green-soft); color: #1c6140; }
+    #codex-task-dashboard-mockup .ctd-status.wait { border-color: rgba(182,111,22,.36); background: var(--ctd-amber-soft); color: #7d4b0c; }
+    #codex-task-dashboard-mockup .ctd-status.idle { border-color: rgba(53,121,168,.28); background: var(--ctd-blue-soft); color: #245c81; }
+
+    #codex-task-dashboard-mockup .ctd-progress {
+      height: 7px;
+      background: #edf0e6;
+      overflow: hidden;
+      border: 1px solid #e1e5d7;
+    }
+
+    #codex-task-dashboard-mockup .ctd-progress span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--ctd-green), var(--ctd-blue));
+    }
+
+    #codex-task-dashboard-mockup .ctd-feed {
+      color: var(--ctd-muted);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.35;
+    }
+
+    #codex-task-dashboard-mockup .ctd-timeline {
+      padding: 12px 18px 12px;
+      background: #fbfcf7;
+      min-height: 0;
+    }
+
+    #codex-task-dashboard-mockup .ctd-timeline-head {
+      display: grid;
+      grid-template-columns: 190px repeat(6, 1fr);
+      align-items: end;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: var(--ctd-muted);
+      font-size: 11px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-schedule {
+      border: 1px solid var(--ctd-line);
+      background: var(--ctd-panel);
+    }
+
+    #codex-task-dashboard-mockup .ctd-lane {
+      display: grid;
+      grid-template-columns: 190px 1fr;
+      min-height: 38px;
+      border-bottom: 1px solid var(--ctd-line);
+    }
+
+    #codex-task-dashboard-mockup .ctd-lane:last-child {
+      border-bottom: 0;
+    }
+
+    #codex-task-dashboard-mockup .ctd-lane-name {
+      padding: 8px 12px;
+      border-right: 1px solid var(--ctd-line);
+      display: grid;
+      gap: 3px;
+      align-content: center;
+    }
+
+    #codex-task-dashboard-mockup .ctd-lane-name strong {
+      font-size: 12px;
+      font-weight: 620;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #codex-task-dashboard-mockup .ctd-lane-name span {
+      font-size: 11px;
+      color: var(--ctd-muted);
+    }
+
+    #codex-task-dashboard-mockup .ctd-lane-track {
+      position: relative;
+      background-image: linear-gradient(90deg, transparent calc(16.66% - 1px), var(--ctd-line) calc(16.66% - 1px), var(--ctd-line) 16.66%, transparent 16.66%);
+      background-size: 16.66% 100%;
+    }
+
+    #codex-task-dashboard-mockup .ctd-bar {
+      position: absolute;
+      top: 8px;
+      height: 20px;
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      color: var(--ctd-text);
+      font-size: 11px;
+      font-weight: 560;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border: 1px solid rgba(17,19,15,.08);
+    }
+
+    #codex-task-dashboard-mockup .ctd-bar.green { background: var(--ctd-green-soft); color: #1f6643; }
+    #codex-task-dashboard-mockup .ctd-bar.blue { background: var(--ctd-blue-soft); color: #245c81; }
+    #codex-task-dashboard-mockup .ctd-bar.amber { background: var(--ctd-amber-soft); color: #7d4b0c; }
+    #codex-task-dashboard-mockup .ctd-bar.violet { background: var(--ctd-violet-soft); color: #51417b; }
+
+    #codex-task-dashboard-mockup .ctd-now {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 38%;
+      width: 2px;
+      background: var(--ctd-red);
+    }
+
+    #codex-task-dashboard-mockup .ctd-right-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--ctd-line);
+      background: var(--ctd-panel);
+      display: grid;
+      gap: 12px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-selected-title {
+      display: grid;
+      gap: 7px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-selected-title strong {
+      font-size: 16px;
+      line-height: 1.25;
+    }
+
+    #codex-task-dashboard-mockup .ctd-right-scroll {
+      min-height: 0;
+      overflow: hidden;
+      padding: 16px 18px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    #codex-task-dashboard-mockup .ctd-inspector-block {
+      border: 1px solid var(--ctd-line);
+      background: var(--ctd-panel);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-inspector-block.alert {
+      border-color: rgba(182, 111, 22, .36);
+      background: linear-gradient(180deg, #fffefa, var(--ctd-amber-soft));
+    }
+
+    #codex-task-dashboard-mockup .ctd-event {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 9px;
+      align-items: start;
+      font-size: 12px;
+      color: var(--ctd-muted);
+    }
+
+    #codex-task-dashboard-mockup .ctd-event-mark {
+      width: 18px;
+      height: 18px;
+      border: 1px solid var(--ctd-line-strong);
+      display: grid;
+      place-items: center;
+      color: var(--ctd-green);
+      font-size: 11px;
+      background: #fbfcf7;
+    }
+
+    #codex-task-dashboard-mockup .ctd-event strong {
+      color: var(--ctd-text);
+      font-weight: 600;
+    }
+
+    #codex-task-dashboard-mockup .ctd-plan-step {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      gap: 9px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--ctd-muted);
+    }
+
+    #codex-task-dashboard-mockup .ctd-check {
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      background: var(--ctd-green-soft);
+      color: var(--ctd-green);
+      border: 1px solid rgba(47,138,91,.25);
+      font-size: 11px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-check.current {
+      background: var(--ctd-blue-soft);
+      color: var(--ctd-blue);
+      border-color: rgba(53,121,168,.32);
+    }
+
+    #codex-task-dashboard-mockup .ctd-command-line {
+      background: #23251f;
+      color: #f7f3e8;
+      padding: 12px;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow: hidden;
+    }
+
+    #codex-task-dashboard-mockup .ctd-log {
+      display: grid;
+      gap: 9px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-log-line {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--ctd-muted);
+    }
+
+    #codex-task-dashboard-mockup .ctd-log-line strong {
+      color: var(--ctd-text);
+      font-weight: 600;
+    }
+
+    #codex-task-dashboard-mockup .ctd-rule {
+      height: 1px;
+      background: var(--ctd-line);
+    }
+  </style>
+
+  <div class="ctd-app">
+    <header class="ctd-topbar">
+      <div class="ctd-brand">
+        <div class="ctd-mark">Cx</div>
+        <div>
+          <div class="ctd-title">Codex 任务总览</div>
+          <div class="ctd-subtitle">Local host · 7 个项目 · 20 秒刷新</div>
+        </div>
+      </div>
+      <div class="ctd-command">
+        <div class="ctd-search">
+          <span>搜索项目、任务、路径或最新进度</span>
+          <span class="ctd-kbd">Ctrl K</span>
+        </div>
+        <div class="ctd-toggle" aria-label="View mode">
+          <span class="active">目标</span>
+          <span>计划</span>
+          <span>排期</span>
+        </div>
+      </div>
+      <div class="ctd-actions">
+        <button class="ctd-icon-btn" aria-label="Filters">筛</button>
+        <button class="ctd-icon-btn" aria-label="Notifications">铃</button>
+        <button class="ctd-primary">新建监控</button>
+      </div>
+    </header>
+
+    <div class="ctd-body">
+      <aside class="ctd-left">
+        <div class="ctd-section">
+          <div class="ctd-section-title">
+            <h2>项目</h2>
+            <span class="ctd-pill"><span class="ctd-dot"></span>4 active</span>
+          </div>
+          <div class="ctd-small">按运行状态、未读、最近更新时间排序。</div>
+        </div>
+        <div class="ctd-project-tabs">
+          <span class="active">全部</span>
+          <span>活跃</span>
+          <span>排期</span>
+        </div>
+        <div class="ctd-project-list">
+          <div class="ctd-project active">
+            <div class="ctd-project-row">
+              <div class="ctd-project-name">小说流水线</div>
+              <span class="ctd-status run"><span class="ctd-dot"></span>执行中</span>
+            </div>
+            <div class="ctd-path">E:\Users\IHOPE\Documents\小说流水线</div>
+            <div class="ctd-mini-bars"><span></span><span></span><span></span></div>
+            <div class="ctd-row-between ctd-small"><span>2 任务</span><span>刚刚更新</span></div>
+          </div>
+          <div class="ctd-project">
+            <div class="ctd-project-row">
+              <div class="ctd-project-name">pianyu-v5</div>
+              <span class="ctd-status run"><span class="ctd-dot blue"></span>测试中</span>
+            </div>
+            <div class="ctd-path">E:\CodexDeliverables\pianyu-v5</div>
+            <div class="ctd-mini-bars"><span></span><span></span><span></span></div>
+            <div class="ctd-row-between ctd-small"><span>1 任务</span><span>2 分钟前</span></div>
+          </div>
+          <div class="ctd-project">
+            <div class="ctd-project-row">
+              <div class="ctd-project-name">tide-stock-selection</div>
+              <span class="ctd-status wait"><span class="ctd-dot amber"></span>需关注</span>
+            </div>
+            <div class="ctd-path">C:\Users\IHOPE\PycharmProjects\tide-stock</div>
+            <div class="ctd-mini-bars"><span></span><span></span><span></span></div>
+            <div class="ctd-row-between ctd-small"><span>1 任务</span><span>命令运行中</span></div>
+          </div>
+          <div class="ctd-project">
+            <div class="ctd-project-row">
+              <div class="ctd-project-name">Codex任务列表</div>
+              <span class="ctd-status run"><span class="ctd-dot violet"></span>设计中</span>
+            </div>
+            <div class="ctd-path">E:\Users\IHOPE\Documents\Codex任务列表</div>
+            <div class="ctd-mini-bars"><span></span><span></span><span></span></div>
+            <div class="ctd-row-between ctd-small"><span>当前任务</span><span>实时</span></div>
+          </div>
+          <div class="ctd-project">
+            <div class="ctd-project-row">
+              <div class="ctd-project-name">universal-toolbox</div>
+              <span class="ctd-status idle"><span class="ctd-dot blue"></span>未加载</span>
+            </div>
+            <div class="ctd-path">C:\Users\IHOPE\Documents\universal-toolbox</div>
+            <div class="ctd-row-between ctd-small"><span>0 运行</span><span>3 天前</span></div>
+          </div>
+        </div>
+        <div class="ctd-left-footer">
+          <div class="ctd-health"><span>Automations</span><strong>2 active</strong></div>
+          <div class="ctd-health"><span>数据源</span><strong>Codex app tools</strong></div>
+          <div class="ctd-health"><span>最近同步</span><strong>19:31:42</strong></div>
+        </div>
+      </aside>
+
+      <main class="ctd-main">
+        <section class="ctd-stats">
+          <div class="ctd-stat live">
+            <div class="ctd-stat-head"><span>运行中任务</span><span class="ctd-pill">live</span></div>
+            <div class="ctd-stat-value">4</div>
+            <div class="ctd-stat-note"><span class="ctd-dot"></span>3 条有新进度</div>
+          </div>
+          <div class="ctd-stat">
+            <div class="ctd-stat-head"><span>今日计划项</span><span>目标模式</span></div>
+            <div class="ctd-stat-value">11</div>
+            <div class="ctd-stat-note"><span class="ctd-dot blue"></span>7 项已验证</div>
+          </div>
+          <div class="ctd-stat warn">
+            <div class="ctd-stat-head"><span>需介入</span><span>attention</span></div>
+            <div class="ctd-stat-value">2</div>
+            <div class="ctd-stat-note"><span class="ctd-dot amber"></span>命令长跑 / 等用户</div>
+          </div>
+          <div class="ctd-stat">
+            <div class="ctd-stat-head"><span>下次自动化</span><span>00:40</span></div>
+            <div class="ctd-stat-value">5h</div>
+            <div class="ctd-stat-note"><span class="ctd-dot violet"></span>小说发布复核</div>
+          </div>
+        </section>
+
+        <section class="ctd-section" style="border-bottom:0; min-height:0;">
+          <div class="ctd-section-title">
+            <div>
+              <h2>实时任务心跳</h2>
+              <div class="ctd-small">从 list_threads + wait_threads 聚合，保留最近一句进度和工具状态。</div>
+            </div>
+            <span class="ctd-pill"><span class="ctd-dot"></span>Last poll 8s ago</span>
+          </div>
+        </section>
+        <div class="ctd-live-table-wrap">
+          <table class="ctd-live-table">
+            <colgroup>
+              <col style="width: 25%;">
+              <col style="width: 12%;">
+              <col style="width: 14%;">
+              <col style="width: 12%;">
+              <col style="width: 37%;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>任务</th>
+                <th>状态</th>
+                <th>当前工具</th>
+                <th>进度</th>
+                <th>最新进展</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="selected">
+                <td>
+                  <div class="ctd-thread-title">
+                    <strong>添加自动上传</strong>
+                    <span>小说流水线 · active · 20 分钟</span>
+                  </div>
+                </td>
+                <td><span class="ctd-status run"><span class="ctd-dot"></span>执行中</span></td>
+                <td>fileChange 完成</td>
+                <td><div class="ctd-progress"><span style="width:78%"></span></div></td>
+                <td><div class="ctd-feed">现在只剩 6 字超额，正在做一个非常小的句子收缩，避免影响内容密度。</div></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="ctd-thread-title">
+                    <strong>整理项目代码结构</strong>
+                    <span>pianyu-v5 · active · 21 分钟</span>
+                  </div>
+                </td>
+                <td><span class="ctd-status run"><span class="ctd-dot blue"></span>测试中</span></td>
+                <td>command 完成</td>
+                <td><div class="ctd-progress"><span style="width:64%"></span></div></td>
+                <td><div class="ctd-feed">文档已同步。接下来跑发布文档测试、签名诊断测试和完整发布门禁。</div></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="ctd-thread-title">
+                    <strong>测试一下</strong>
+                    <span>tide-stock-selection · active · 2 分钟</span>
+                  </div>
+                </td>
+                <td><span class="ctd-status wait"><span class="ctd-dot amber"></span>需关注</span></td>
+                <td>command 运行中</td>
+                <td><div class="ctd-progress"><span style="width:42%"></span></div></td>
+                <td><div class="ctd-feed">继续定位 WeibanSelectionTask 生成结果后如何触发模拟买入。</div></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="ctd-thread-title">
+                    <strong>设计Codex任务仪表板</strong>
+                    <span>Codex任务列表 · current · 实时</span>
+                  </div>
+                </td>
+                <td><span class="ctd-status run"><span class="ctd-dot violet"></span>设计中</span></td>
+                <td>visual mockup</td>
+                <td><div class="ctd-progress"><span style="width:58%"></span></div></td>
+                <td><div class="ctd-feed">形成插件设计草案，并产出桌面端高保真 UI 图。</div></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="ctd-thread-title">
+                    <strong>排查 PowerShell 弹窗</strong>
+                    <span>new-chat · idle · 1 小时前</span>
+                  </div>
+                </td>
+                <td><span class="ctd-status idle"><span class="ctd-dot blue"></span>空闲</span></td>
+                <td>无</td>
+                <td><div class="ctd-progress"><span style="width:100%"></span></div></td>
+                <td><div class="ctd-feed">已定位可疑定时任务，等待用户确认是否禁用。</div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <section class="ctd-timeline">
+          <div class="ctd-section-title">
+            <div>
+              <h2>目标与排期</h2>
+              <div class="ctd-small">计划模式提取步骤；目标模式展示终局条件；有日期时进入轻量 Gantt。</div>
+            </div>
+            <span class="ctd-pill">今天 18:00 - 明天 12:00</span>
+          </div>
+          <div class="ctd-timeline-head">
+            <span>项目 / 任务</span>
+            <span>18:00</span><span>21:00</span><span>00:00</span><span>03:00</span><span>06:00</span><span>09:00</span>
+          </div>
+          <div class="ctd-schedule">
+            <div class="ctd-lane">
+              <div class="ctd-lane-name"><strong>小说流水线</strong><span>目标：001-240 全部发布</span></div>
+              <div class="ctd-lane-track">
+                <div class="ctd-now"></div>
+                <div class="ctd-bar green" style="left:8%; width:27%;">正文收缩与复核</div>
+                <div class="ctd-bar amber" style="left:67%; width:18%;">00:40 自动化</div>
+              </div>
+            </div>
+            <div class="ctd-lane">
+              <div class="ctd-lane-name"><strong>pianyu-v5</strong><span>发布门禁与构建</span></div>
+              <div class="ctd-lane-track">
+                <div class="ctd-now"></div>
+                <div class="ctd-bar blue" style="left:14%; width:40%;">测试 / Android / Harmony</div>
+              </div>
+            </div>
+            <div class="ctd-lane">
+              <div class="ctd-lane-name"><strong>tide-stock</strong><span>模拟买入隔离验证</span></div>
+              <div class="ctd-lane-track">
+                <div class="ctd-now"></div>
+                <div class="ctd-bar amber" style="left:22%; width:30%;">命令长跑观察</div>
+              </div>
+            </div>
+            <div class="ctd-lane">
+              <div class="ctd-lane-name"><strong>Codex 仪表板</strong><span>设计稿与插件规格</span></div>
+              <div class="ctd-lane-track">
+                <div class="ctd-now"></div>
+                <div class="ctd-bar violet" style="left:31%; width:25%;">高保真设计</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="ctd-right">
+        <div class="ctd-right-head">
+          <div class="ctd-row-between">
+            <span class="ctd-pill"><span class="ctd-dot"></span>Selected</span>
+            <span class="ctd-small">thread 019f6195...</span>
+          </div>
+          <div class="ctd-selected-title">
+            <strong>添加自动上传</strong>
+            <span class="ctd-meta">E:\Users\IHOPE\Documents\小说流水线</span>
+          </div>
+          <div class="ctd-row-between">
+            <span class="ctd-status run"><span class="ctd-dot"></span>正在执行</span>
+            <span class="ctd-pill">目标模式</span>
+          </div>
+        </div>
+        <div class="ctd-right-scroll">
+          <div class="ctd-inspector-block alert">
+            <div class="ctd-section-title" style="margin:0;">
+              <h3>注意事项</h3>
+              <span class="ctd-pill"><span class="ctd-dot amber"></span>watch</span>
+            </div>
+            <div class="ctd-small">任务接近完成但仍有内容压缩动作；若 15 分钟无进展，建议提醒或读取最新 turn。</div>
+          </div>
+
+          <div class="ctd-inspector-block">
+            <h3>当前目标</h3>
+            <div class="ctd-event">
+              <div class="ctd-event-mark">1</div>
+              <div><strong>番茄自动上传</strong><br>从第一章开始重写并持续上传发布，直到全部章节成功。</div>
+            </div>
+            <div class="ctd-rule"></div>
+            <div class="ctd-event">
+              <div class="ctd-event-mark">2</div>
+              <div><strong>完成条件</strong><br>001-240 全部发布成功；未达到前不标记目标完成。</div>
+            </div>
+          </div>
+
+          <div class="ctd-inspector-block">
+            <div class="ctd-section-title" style="margin:0;">
+              <h3>计划步骤</h3>
+              <span class="ctd-small">3 / 5</span>
+            </div>
+            <div class="ctd-plan-step"><span class="ctd-check">✓</span><span>检查 /api/health</span><span>完成</span></div>
+            <div class="ctd-plan-step"><span class="ctd-check">✓</span><span>读取上传状态文件</span><span>完成</span></div>
+            <div class="ctd-plan-step"><span class="ctd-check current">•</span><span>收缩正文超额句子</span><span>进行中</span></div>
+            <div class="ctd-plan-step"><span class="ctd-check current">•</span><span>DryRun 下一批计划</span><span>待执行</span></div>
+            <div class="ctd-plan-step"><span class="ctd-check current">•</span><span>汇总发布章节</span><span>待执行</span></div>
+          </div>
+
+          <div class="ctd-inspector-block">
+            <h3>最近心跳</h3>
+            <div class="ctd-log">
+              <div class="ctd-log-line"><strong>19:31</strong><span>fileChange completed</span></div>
+              <div class="ctd-log-line"><strong>19:30</strong><span>现在只剩 6 字超额，准备做非常小的句子收缩。</span></div>
+              <div class="ctd-log-line"><strong>19:27</strong><span>读取当前章节和发布状态，保持目标未完成。</span></div>
+            </div>
+          </div>
+
+          <div class="ctd-inspector-block">
+            <h3>最近命令</h3>
+            <div class="ctd-command-line">scripts\Invoke-FanqieDailyUpload.ps1 -DryRun<br><span style="color:#d8caa8;">status: waiting for next batch window</span></div>
+          </div>
+
+          <div class="ctd-inspector-block">
+            <h3>推荐动作</h3>
+            <div class="ctd-row-between"><span class="ctd-small">超过 15 分钟无心跳</span><span class="ctd-pill">提醒</span></div>
+            <div class="ctd-row-between"><span class="ctd-small">自动化窗口到达</span><span class="ctd-pill">唤醒任务</span></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+<script type="module" src="/assets/dashboard.js"></script>
+</body>
+</html>

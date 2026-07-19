@@ -1,0 +1,13 @@
+{
+  "value": [
+    {
+      "conversationId": "thread-a",
+      "cwd": "E:\\Users\\IHOPE\\Documents\\小说流水线",
+      "command": "scripts\\Invoke-FanqieDailyUpload.ps1 -DryRun",
+      "itemId": "call-a",
+      "processId": "1234",
+      "startedAtMs": 1784449080000,
+      "updatedAtMs": 1784449100000
+    }
+  ]
+}

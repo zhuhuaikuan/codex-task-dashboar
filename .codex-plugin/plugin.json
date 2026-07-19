@@ -1,0 +1,27 @@
+{
+  "name": "codex-task-dashboard",
+  "version": "0.1.0+codex.20260719095510",
+  "description": "Local real-time dashboard for Codex project tasks, goals, plans, and automations.",
+  "author": {
+    "name": "IHOPE"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Task Dashboard",
+    "shortDescription": "Monitor Codex tasks, progress heartbeats, and schedule signals.",
+    "longDescription": "Codex Task Dashboard provides a local browser dashboard for scanning recent Codex threads, live-ish task heartbeats, project grouping, goal and plan summaries, and local automation schedule signals. It reads local Codex session, process, and automation files and serves a high-fidelity operational console matching the approved dashboard design.",
+    "developerName": "IHOPE",
+    "category": "Productivity",
+    "capabilities": [
+      "Local dashboard",
+      "Task monitoring",
+      "Automation schedule"
+    ],
+    "brandColor": "#2F8A5B",
+    "defaultPrompt": [
+      "Open my Codex task dashboard.",
+      "Show current Codex task progress.",
+      "Check my Codex automations."
+    ]
+  }
+}
