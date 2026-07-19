@@ -2,10 +2,13 @@ const root = document.getElementById("codex-task-dashboard-mockup");
 
 const state = {
   snapshot: null,
-  mode: "goal",
+  mode: "目标",
   query: "",
   projectFilter: "all",
+  projectScoped: false,
+  selectedProjectId: null,
   selectedTaskId: null,
+  pollTimer: null,
 };
 
 const statusClass = {
@@ -14,15 +17,39 @@ const statusClass = {
   idle: "idle",
 };
 
+const statusDot = {
+  running: "",
+  attention: "amber",
+  idle: "blue",
+};
+
 async function refreshSnapshot() {
   try {
     const response = await fetch("/api/snapshot", { cache: "no-store" });
     if (!response.ok) throw new Error(`snapshot ${response.status}`);
     state.snapshot = await response.json();
-    state.selectedTaskId ??= state.snapshot.selectedTask?.id ?? state.snapshot.tasks?.[0]?.id ?? null;
+    reconcileSelection();
     render();
   } catch (error) {
     console.error(error);
+    setText(".ctd-last-poll", "Snapshot unavailable");
+  }
+}
+
+function reconcileSelection() {
+  const { snapshot } = state;
+  const taskIds = new Set(snapshot.tasks.map((task) => task.id));
+  if (!state.selectedTaskId || !taskIds.has(state.selectedTaskId)) {
+    state.selectedTaskId = snapshot.selectedTask?.id ?? snapshot.tasks[0]?.id ?? null;
+  }
+
+  const task = selectedTask();
+  const projectIds = new Set(snapshot.projects.map((project) => project.id));
+  if (task?.cwd && projectIds.has(task.cwd)) {
+    state.selectedProjectId ??= task.cwd;
+  }
+  if (state.selectedProjectId && !projectIds.has(state.selectedProjectId)) {
+    state.selectedProjectId = snapshot.projects[0]?.id ?? null;
   }
 }
 
@@ -38,12 +65,15 @@ function render() {
 
 function renderTopline() {
   const { snapshot } = state;
-  setText(".ctd-subtitle", `Local host · ${snapshot.projects.length} 个项目 · 20 秒刷新`);
+  const totalProjects = snapshot.projects.length;
+  const totalTasks = snapshot.metrics.totalTasks;
+  setText(".ctd-subtitle", `Local host · ${totalProjects} 个项目 · 20 秒刷新`);
+  setText(".ctd-project-count", `${snapshot.metrics.runningTasks} running`);
   setText(".ctd-left-footer .ctd-health:nth-child(1) strong", `${snapshot.metrics.automationsActive} active`);
-  setText(".ctd-left-footer .ctd-health:nth-child(2) strong", "Local Codex files");
+  setText(".ctd-left-footer .ctd-health:nth-child(2) strong", `${snapshot.source.sessions} session files`);
   setText(".ctd-left-footer .ctd-health:nth-child(3) strong", formatTime(snapshot.generatedAt));
   setText(".ctd-stats .ctd-stat:nth-child(4) .ctd-stat-head span:nth-child(2)", snapshot.automations[0]?.nextLabel ?? "--:--");
-  setText(".ctd-stats .ctd-stat:nth-child(4) .ctd-stat-note", `● ${snapshot.automations[0]?.name ?? "暂无自动化"}`);
+  setText(".ctd-window-label", `${totalProjects} projects / ${totalTasks} tasks`);
 }
 
 function renderMetrics() {
@@ -52,35 +82,61 @@ function renderMetrics() {
   if (values[0]) values[0].textContent = metrics.runningTasks;
   if (values[1]) values[1].textContent = metrics.plannedItems;
   if (values[2]) values[2].textContent = metrics.attentionTasks;
-  if (values[3]) values[3].textContent = nextAutomationDelta(state.snapshot.automations[0]);
-  setText(".ctd-stat.live .ctd-stat-note", `● ${metrics.totalTasks} 条最近任务`);
-  setText(".ctd-stats .ctd-stat:nth-child(2) .ctd-stat-note", `● ${metrics.plannedItems} 个计划步骤`);
-  setText(".ctd-stat.warn .ctd-stat-note", `● ${metrics.attentionTasks} 条需复核`);
-  setText(".ctd-main > .ctd-section .ctd-pill", `● Last poll ${formatTime(state.snapshot.generatedAt)}`);
+  if (values[3]) values[3].textContent = nextAutomationLabel(state.snapshot.automations[0]);
+
+  setText(".ctd-stat.live .ctd-stat-note", `${metrics.totalTasks} 条本地任务快照`);
+  setText(".ctd-stats .ctd-stat:nth-child(2) .ctd-stat-note", `${metrics.plannedItems} 个计划步骤`);
+  setText(".ctd-stat.warn .ctd-stat-note", `${metrics.attentionTasks} 条需要关注`);
+  setText(".ctd-stats .ctd-stat:nth-child(4) .ctd-stat-note", state.snapshot.automations[0]?.name ?? "暂无自动化");
+  setText(".ctd-last-poll", `Last poll ${formatTime(state.snapshot.generatedAt)}`);
 }
 
 function renderProjects() {
   const list = root.querySelector(".ctd-project-list");
   if (!list) return;
+
   const projects = state.snapshot.projects.filter(projectMatches);
-  list.innerHTML = projects.map((project, index) => `
-    <button class="ctd-project ${index === 0 ? "active" : ""}" data-project-id="${escapeAttr(project.id)}">
-      <div class="ctd-project-row">
-        <div class="ctd-project-name">${escapeHtml(project.name)}</div>
-        <span class="ctd-status ${project.attention ? "wait" : project.running ? "run" : "idle"}"><span class="ctd-dot ${project.attention ? "amber" : project.running ? "" : "blue"}"></span>${project.attention ? "需关注" : project.running ? "执行中" : "空闲"}</span>
-      </div>
-      <div class="ctd-path">${escapeHtml(project.path)}</div>
-      <div class="ctd-mini-bars"><span></span><span></span><span></span></div>
-      <div class="ctd-row-between ctd-small"><span>${project.tasks.length} 任务</span><span>${escapeHtml(relativeFromIso(project.updatedAt))}</span></div>
-    </button>
-  `).join("");
+  if (!projects.length) {
+    list.innerHTML = `<div class="ctd-small" style="padding:12px;">当前筛选下没有项目。</div>`;
+    return;
+  }
+
+  list.innerHTML = projects.map((project) => {
+    const active = project.id === state.selectedProjectId;
+    const attention = project.attention > 0;
+    const running = project.running > 0;
+    const status = attention ? "需关注" : running ? "执行中" : "空闲";
+    const taskCount = uniqueCount(project.tasks);
+
+    return `
+      <button type="button" class="ctd-project ${active ? "active" : ""}" data-project-id="${escapeAttr(project.id)}">
+        <div class="ctd-project-row">
+          <div class="ctd-project-name">${escapeHtml(project.name)}</div>
+          <span class="ctd-status ${attention ? "wait" : running ? "run" : "idle"}"><span class="ctd-dot ${attention ? "amber" : running ? "" : "blue"}"></span>${status}</span>
+        </div>
+        <div class="ctd-path">${escapeHtml(project.path)}</div>
+        <div class="ctd-mini-bars"><span></span><span></span><span></span></div>
+        <div class="ctd-row-between ctd-small"><span>${taskCount} 任务</span><span>${escapeHtml(relativeFromIso(project.updatedAt))}</span></div>
+      </button>
+    `;
+  }).join("");
 }
 
 function renderTasks() {
   const tbody = root.querySelector(".ctd-live-table tbody");
   if (!tbody) return;
+
   const tasks = filteredTasks();
-  tbody.innerHTML = tasks.map((task) => `
+  if (!tasks.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5"><div class="ctd-small" style="padding:14px;">当前筛选下没有任务。清空搜索或切换项目查看。</div></td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = tasks.slice(0, 8).map((task) => `
     <tr class="${task.id === state.selectedTaskId ? "selected" : ""}" data-task-id="${escapeAttr(task.id)}">
       <td>
         <div class="ctd-thread-title">
@@ -88,7 +144,7 @@ function renderTasks() {
           <span>${escapeHtml(task.projectName)} · ${escapeHtml(task.status)} · ${escapeHtml(task.updatedAgo)}</span>
         </div>
       </td>
-      <td><span class="ctd-status ${statusClass[task.status] ?? "idle"}"><span class="ctd-dot ${task.status === "attention" ? "amber" : task.status === "idle" ? "blue" : ""}"></span>${escapeHtml(task.statusLabel)}</span></td>
+      <td><span class="ctd-status ${statusClass[task.status] ?? "idle"}"><span class="ctd-dot ${statusDot[task.status] ?? "blue"}"></span>${escapeHtml(task.statusLabel)}</span></td>
       <td>${escapeHtml(task.latestTool)} ${escapeHtml(task.toolStatus)}</td>
       <td><div class="ctd-progress"><span style="width:${clamp(task.progress, 0, 100)}%"></span></div></td>
       <td><div class="ctd-feed">${escapeHtml(task.latestHeartbeat)}</div></td>
@@ -99,7 +155,17 @@ function renderTasks() {
 function renderTimeline() {
   const schedule = root.querySelector(".ctd-schedule");
   if (!schedule) return;
-  schedule.innerHTML = state.snapshot.scheduleRows.map((row) => `
+
+  const rows = state.snapshot.scheduleRows.length
+    ? state.snapshot.scheduleRows
+    : state.snapshot.projects.slice(0, 4).map((project) => ({
+      id: project.id,
+      name: project.name,
+      subtitle: "最近活动",
+      bars: [],
+    }));
+
+  schedule.innerHTML = rows.slice(0, 4).map((row) => `
     <div class="ctd-lane">
       <div class="ctd-lane-name"><strong>${escapeHtml(row.name)}</strong><span>${escapeHtml(row.subtitle)}</span></div>
       <div class="ctd-lane-track">
@@ -112,76 +178,135 @@ function renderTimeline() {
 
 function renderInspector() {
   const task = selectedTask();
-  if (!task) return;
+  const modeLabel = `${state.mode}模式`;
+  setText(".ctd-inspector-mode", modeLabel);
+
+  if (!task) {
+    setText(".ctd-selected-title strong", "没有任务");
+    setText(".ctd-selected-title .ctd-meta", "当前本地快照为空");
+    return;
+  }
+
   setText(".ctd-selected-title strong", task.title);
-  setText(".ctd-selected-title .ctd-meta", task.cwd);
-  setText(".ctd-right-head .ctd-status", `● ${task.statusLabel}`);
+  setText(".ctd-selected-title .ctd-meta", task.cwd || task.projectName);
+  const status = root.querySelector(".ctd-right-head .ctd-status");
+  if (status) {
+    status.className = `ctd-status ${statusClass[task.status] ?? "idle"}`;
+    status.innerHTML = `<span class="ctd-dot ${statusDot[task.status] ?? "blue"}"></span>${escapeHtml(task.statusLabel)}`;
+  }
   setText(".ctd-right-head .ctd-small", `thread ${task.id.slice(0, 8)}...`);
-  setText(".ctd-inspector-block.alert .ctd-small", task.status === "attention"
-    ? "最近有活动但未发现运行中命令，建议读取最新 turn 或确认是否等待用户。"
-    : "任务仍有运行迹象；若长时间无心跳，建议提醒或读取最新 turn。");
 
-  const goalBlock = root.querySelectorAll(".ctd-inspector-block")[1];
-  if (goalBlock) {
-    goalBlock.innerHTML = `
-      <h3>当前目标</h3>
-      <div class="ctd-event"><div class="ctd-event-mark">1</div><div><strong>${escapeHtml(task.title)}</strong><br>${escapeHtml(task.goal)}</div></div>
-      <div class="ctd-rule"></div>
-      <div class="ctd-event"><div class="ctd-event-mark">2</div><div><strong>完成条件</strong><br>最近心跳进入 final 或用户明确确认完成。</div></div>
-    `;
-  }
+  const blocks = root.querySelectorAll(".ctd-inspector-block");
+  renderAttentionBlock(blocks[0], task);
+  renderGoalBlock(blocks[1], task);
+  renderStepsBlock(blocks[2], task);
+  renderHeartbeatBlock(blocks[3], task);
+  renderCommandBlock(blocks[4], task);
+  renderRecommendationBlock(blocks[5], task);
+}
 
-  const stepsBlock = root.querySelectorAll(".ctd-inspector-block")[2];
-  if (stepsBlock) {
-    stepsBlock.innerHTML = `
-      <div class="ctd-section-title" style="margin:0;">
-        <h3>计划步骤</h3>
-        <span class="ctd-small">${task.planSteps.filter((step) => step.state === "done").length} / ${task.planSteps.length}</span>
+function renderAttentionBlock(block, task) {
+  if (!block) return;
+  block.innerHTML = `
+    <div class="ctd-section-title" style="margin:0;">
+      <h3>注意事项</h3>
+      <span class="ctd-pill"><span class="ctd-dot ${task.status === "attention" ? "amber" : ""}"></span>${task.status === "attention" ? "watch" : "live"}</span>
+    </div>
+    <div class="ctd-small">${task.status === "attention"
+      ? "该任务最近没有新的运行痕迹，建议读取最新 turn 或确认是否在等用户。"
+      : "该任务仍有近期心跳或命令记录，继续观察即可。"}</div>
+  `;
+}
+
+function renderGoalBlock(block, task) {
+  if (!block) return;
+  const secondLabel = state.mode === "计划" ? "下一步" : state.mode === "排期" ? "排期依据" : "完成条件";
+  const secondBody = state.mode === "计划"
+    ? nextPlanStep(task)?.label ?? "暂无未完成计划步骤。"
+    : state.mode === "排期"
+      ? `${task.updatedAgo} 更新；进度 ${task.progress}%。`
+      : "最新心跳进入 final 或用户明确确认后，才视为完成。";
+
+  block.innerHTML = `
+    <h3>${state.mode === "排期" ? "排期目标" : "当前目标"}</h3>
+    <div class="ctd-event"><div class="ctd-event-mark">1</div><div><strong>${escapeHtml(task.projectName)}</strong><br>${escapeHtml(task.goal)}</div></div>
+    <div class="ctd-rule"></div>
+    <div class="ctd-event"><div class="ctd-event-mark">2</div><div><strong>${escapeHtml(secondLabel)}</strong><br>${escapeHtml(secondBody)}</div></div>
+  `;
+}
+
+function renderStepsBlock(block, task) {
+  if (!block) return;
+  const done = task.planSteps.filter((step) => step.state === "done").length;
+  block.innerHTML = `
+    <div class="ctd-section-title" style="margin:0;">
+      <h3>计划步骤</h3>
+      <span class="ctd-small">${done} / ${task.planSteps.length}</span>
+    </div>
+    ${task.planSteps.map((step) => `
+      <div class="ctd-plan-step">
+        <span class="ctd-check ${step.state === "done" ? "" : "current"}">${step.state === "done" ? "✓" : "•"}</span>
+        <span>${escapeHtml(step.label)}</span>
+        <span>${step.state === "done" ? "完成" : step.state === "current" ? "进行中" : "待执行"}</span>
       </div>
-      ${task.planSteps.map((step) => `
-        <div class="ctd-plan-step">
-          <span class="ctd-check ${step.state === "done" ? "" : "current"}">${step.state === "done" ? "✓" : "•"}</span>
-          <span>${escapeHtml(step.label)}</span>
-          <span>${step.state === "done" ? "完成" : step.state === "current" ? "进行中" : "待执行"}</span>
-        </div>
-      `).join("")}
-    `;
-  }
+    `).join("")}
+  `;
+}
 
-  const heartbeatBlock = root.querySelectorAll(".ctd-inspector-block")[3];
-  if (heartbeatBlock) {
-    heartbeatBlock.innerHTML = `
-      <h3>最近心跳</h3>
-      <div class="ctd-log">
-        <div class="ctd-log-line"><strong>${escapeHtml(formatTime(task.updatedAt))}</strong><span>${escapeHtml(task.latestHeartbeat)}</span></div>
-        <div class="ctd-log-line"><strong>${escapeHtml(task.toolStatus)}</strong><span>${escapeHtml(task.latestTool)}</span></div>
-      </div>
-    `;
-  }
+function renderHeartbeatBlock(block, task) {
+  if (!block) return;
+  block.innerHTML = `
+    <h3>最近心跳</h3>
+    <div class="ctd-log">
+      <div class="ctd-log-line"><strong>${escapeHtml(formatTime(task.updatedAt))}</strong><span>${escapeHtml(task.latestHeartbeat)}</span></div>
+      <div class="ctd-log-line"><strong>${escapeHtml(task.toolStatus)}</strong><span>${escapeHtml(task.latestTool)}</span></div>
+    </div>
+  `;
+}
 
-  const commandBlock = root.querySelectorAll(".ctd-inspector-block")[4];
-  if (commandBlock) {
-    commandBlock.innerHTML = `
-      <h3>最近命令</h3>
-      <div class="ctd-command-line">${escapeHtml(task.latestCommand || "No recent command recorded")}</div>
-    `;
-  }
+function renderCommandBlock(block, task) {
+  if (!block) return;
+  block.innerHTML = `
+    <h3>最近命令</h3>
+    <div class="ctd-command-line">${escapeHtml(task.latestCommand || "No recent command recorded.")}</div>
+  `;
+}
+
+function renderRecommendationBlock(block, task) {
+  if (!block) return;
+  const recommendation = task.status === "attention"
+    ? ["读取最新 turn", "复核等待原因"]
+    : task.toolStatus === "running"
+      ? ["观察命令输出", "保留当前上下文"]
+      : ["继续监控", "等待下一次心跳"];
+
+  block.innerHTML = `
+    <h3>推荐动作</h3>
+    <div class="ctd-row-between"><span class="ctd-small">${escapeHtml(recommendation[0])}</span><span class="ctd-pill">primary</span></div>
+    <div class="ctd-row-between"><span class="ctd-small">${escapeHtml(recommendation[1])}</span><span class="ctd-pill">next</span></div>
+  `;
 }
 
 function selectedTask() {
-  return state.snapshot.tasks.find((task) => task.id === state.selectedTaskId) ?? state.snapshot.tasks[0] ?? null;
+  return state.snapshot?.tasks.find((task) => task.id === state.selectedTaskId)
+    ?? filteredTasks()[0]
+    ?? state.snapshot?.tasks[0]
+    ?? null;
 }
 
 function filteredTasks() {
+  if (!state.snapshot) return [];
+  const query = state.query.trim().toLowerCase();
   return state.snapshot.tasks.filter((task) => {
-    const query = state.query.trim().toLowerCase();
+    if (state.projectScoped && state.selectedProjectId && task.cwd !== state.selectedProjectId) return false;
     if (!query) return true;
-    return [task.title, task.projectName, task.cwd, task.latestHeartbeat].some((value) => String(value).toLowerCase().includes(query));
+    return [task.title, task.projectName, task.cwd, task.latestHeartbeat, task.latestCommand]
+      .some((value) => String(value ?? "").toLowerCase().includes(query));
   });
 }
 
 function projectMatches(project) {
-  if (state.projectFilter === "active") return project.running > 0;
+  if (state.projectFilter === "active") return project.running > 0 || project.attention > 0;
   if (state.projectFilter === "schedule") return project.tasks.length > 0;
   return true;
 }
@@ -193,6 +318,8 @@ function wireInteractions() {
       root.querySelectorAll(".ctd-toggle span").forEach((item) => item.classList.remove("active"));
       mode.classList.add("active");
       state.mode = mode.textContent.trim();
+      renderInspector();
+      return;
     }
 
     const tab = event.target.closest(".ctd-project-tabs span");
@@ -201,11 +328,28 @@ function wireInteractions() {
       tab.classList.add("active");
       state.projectFilter = tab.textContent.includes("活跃") ? "active" : tab.textContent.includes("排期") ? "schedule" : "all";
       renderProjects();
+      return;
+    }
+
+    const project = event.target.closest("[data-project-id]");
+    if (project) {
+      state.selectedProjectId = project.dataset.projectId;
+      state.projectScoped = true;
+      const firstProjectTask = state.snapshot.tasks.find((task) => task.cwd === state.selectedProjectId);
+      state.selectedTaskId = firstProjectTask?.id ?? state.selectedTaskId;
+      renderProjects();
+      renderTasks();
+      renderInspector();
+      return;
     }
 
     const row = event.target.closest("[data-task-id]");
     if (row) {
       state.selectedTaskId = row.dataset.taskId;
+      const task = selectedTask();
+      state.selectedProjectId = task?.cwd ?? state.selectedProjectId;
+      state.projectScoped = true;
+      renderProjects();
       renderTasks();
       renderInspector();
     }
@@ -214,6 +358,10 @@ function wireInteractions() {
   const search = root.querySelector(".ctd-search");
   if (search) {
     search.setAttribute("contenteditable", "true");
+    search.setAttribute("role", "searchbox");
+    search.addEventListener("focus", () => {
+      if (!state.query) search.querySelector("span")?.replaceChildren();
+    });
     search.addEventListener("input", () => {
       state.query = search.textContent.replace("Ctrl K", "").trim();
       renderTasks();
@@ -238,9 +386,16 @@ function relativeFromIso(value) {
   return date.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function nextAutomationDelta(automation) {
-  if (!automation?.nextLabel) return "--";
-  return automation.nextLabel;
+function nextAutomationLabel(automation) {
+  return automation?.nextLabel ?? "--";
+}
+
+function nextPlanStep(task) {
+  return task.planSteps.find((step) => step.state !== "done") ?? null;
+}
+
+function uniqueCount(values) {
+  return new Set(values ?? []).size;
 }
 
 function clamp(value, min, max) {
@@ -261,4 +416,4 @@ function escapeAttr(value) {
 
 wireInteractions();
 refreshSnapshot();
-setInterval(refreshSnapshot, 20000);
+state.pollTimer = setInterval(refreshSnapshot, 20000);

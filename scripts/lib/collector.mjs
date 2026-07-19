@@ -4,6 +4,9 @@ import os from "node:os";
 
 const DEFAULT_LIMIT = 40;
 const ACTIVE_WINDOW_MS = 45 * 60 * 1000;
+const SESSION_HEAD_BYTES = 32 * 1024;
+const SESSION_TAIL_BYTES = 96 * 1024;
+const MAX_SESSION_LINE_CHARS = 24 * 1024;
 
 export async function collectSnapshot(options = {}) {
   const codexHome = options.codexHome ?? path.join(os.homedir(), ".codex");
@@ -47,14 +50,15 @@ export async function collectSnapshot(options = {}) {
   };
 }
 
-export async function parseSessionFile(filePath) {
-  const stat = await fs.stat(filePath);
-  const text = await fs.readFile(filePath, "utf8");
+export async function parseSessionFile(filePath, options = {}) {
+  const stat = options.stat ?? await fs.stat(filePath);
+  const text = options.text ?? await readSessionText(filePath, stat.size);
   const lines = text.split(/\r?\n/).filter(Boolean);
+  const headerMeta = options.headerMeta ?? extractSessionMeta(text);
   const session = {
-    id: sessionIdFromFile(filePath),
-    cwd: "",
-    createdAt: null,
+    id: headerMeta.id ?? sessionIdFromFile(filePath),
+    cwd: headerMeta.cwd ?? "",
+    createdAt: headerMeta.createdAt ?? null,
     updatedAt: null,
     title: "",
     latestHeartbeat: "",
@@ -65,6 +69,8 @@ export async function parseSessionFile(filePath) {
   };
 
   for (const line of lines) {
+    if (line.length > MAX_SESSION_LINE_CHARS) continue;
+
     let entry;
     try {
       entry = JSON.parse(line);
@@ -129,6 +135,59 @@ export async function parseSessionFile(filePath) {
   return session;
 }
 
+async function readSessionText(filePath, size) {
+  const sampleSize = SESSION_HEAD_BYTES + SESSION_TAIL_BYTES;
+  if (size <= sampleSize) {
+    return fs.readFile(filePath, "utf8");
+  }
+
+  const file = await fs.open(filePath, "r");
+  try {
+    const head = Buffer.alloc(SESSION_HEAD_BYTES);
+    const tail = Buffer.alloc(SESSION_TAIL_BYTES);
+    const { bytesRead: headBytes } = await file.read(head, 0, head.length, 0);
+    const { bytesRead: tailBytes } = await file.read(tail, 0, tail.length, Math.max(0, size - SESSION_TAIL_BYTES));
+
+    const headText = head.toString("utf8", 0, headBytes);
+    const rawTailText = tail.toString("utf8", 0, tailBytes);
+    const firstTailBreak = rawTailText.indexOf("\n");
+    const tailText = firstTailBreak === -1 ? rawTailText : rawTailText.slice(firstTailBreak + 1);
+    return `${headText}\n${tailText}`;
+  } finally {
+    await file.close();
+  }
+}
+
+function extractSessionMeta(text) {
+  if (!text.includes("session_meta")) return {};
+  return {
+    id: jsonStringMatch(text, /"session_id"\s*:\s*"((?:\\.|[^"\\])*)"/)
+      ?? jsonStringMatch(text, /"id"\s*:\s*"((?:\\.|[^"\\])*)"/),
+    cwd: jsonStringMatch(text, /"cwd"\s*:\s*"((?:\\.|[^"\\])*)"/),
+    createdAt: coerceDate(jsonStringMatch(text, /"timestamp"\s*:\s*"((?:\\.|[^"\\])*)"/)),
+  };
+}
+
+function extractLatestTimestamp(text) {
+  const matches = text.matchAll(/"timestamp"\s*:\s*"((?:\\.|[^"\\])*)"/g);
+  let latest = null;
+  for (const match of matches) {
+    const date = coerceDate(jsonStringMatch(match[0], /"timestamp"\s*:\s*"((?:\\.|[^"\\])*)"/));
+    if (date && (!latest || date > latest)) latest = date;
+  }
+  return latest;
+}
+
+function jsonStringMatch(text, pattern) {
+  const match = text.match(pattern);
+  if (!match) return null;
+  try {
+    return JSON.parse(`"${match[1]}"`);
+  } catch {
+    return match[1];
+  }
+}
+
 export function parseAutomationToml(tomlText) {
   const fields = {};
   for (const rawLine of tomlText.split(/\r?\n/)) {
@@ -166,19 +225,36 @@ async function collectSessions(codexHome, limit) {
   const sessionFiles = await Promise.all(
     files.map(async (file) => ({ file, stat: await fs.stat(file) })),
   );
-  sessionFiles.sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
 
-  const parsed = [];
-  for (const { file } of sessionFiles.slice(0, limit)) {
+  const latestCandidates = new Map();
+  for (const { file, stat } of sessionFiles) {
     try {
-      parsed.push(await parseSessionFile(file));
+      const text = await readSessionText(file, stat.size);
+      const headerMeta = extractSessionMeta(text);
+      const threadId = headerMeta.id ?? sessionIdFromFile(file);
+      const updatedHint = extractLatestTimestamp(text) ?? stat.mtime;
+      const previous = latestCandidates.get(threadId);
+      if (!previous || updatedHint > previous.updatedHint) {
+        latestCandidates.set(threadId, { file, stat, text, headerMeta, updatedHint });
+      }
     } catch {
       // A live JSONL file can be mid-write. Skip it for this poll instead of
       // making the entire dashboard blank.
     }
   }
-  parsed.sort((a, b) => b.updatedAt - a.updatedAt);
-  return parsed;
+
+  const parsed = [];
+  const candidates = [...latestCandidates.values()]
+    .sort((a, b) => b.updatedHint - a.updatedHint)
+    .slice(0, limit);
+  for (const candidate of candidates) {
+    try {
+      parsed.push(await parseSessionFile(candidate.file, candidate));
+    } catch {
+      // Skip files that became unreadable after candidate discovery.
+    }
+  }
+  return parsed.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 async function collectCommandRecords(codexHome) {

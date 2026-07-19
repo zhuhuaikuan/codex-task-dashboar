@@ -42,4 +42,17 @@ describe("server", () => {
       assert.match(html, /dashboard\.js/);
     });
   });
+
+  it("serves a data-driven shell without baked-in sample tasks", async () => {
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/`);
+      const html = await response.text();
+
+      assert.equal(response.status, 200);
+      assert.doesNotMatch(html, /pianyu-v5/);
+      assert.doesNotMatch(html, /tide-stock-selection/);
+      assert.doesNotMatch(html, /universal-toolbox/);
+      assert.match(html, /data-dashboard-shell/);
+    });
+  });
 });

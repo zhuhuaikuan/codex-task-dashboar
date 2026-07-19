@@ -1,6 +1,6 @@
 {
   "name": "codex-task-dashboard",
-  "version": "0.1.0+codex.20260719095510",
+  "version": "0.1.0+codex.20260719105811",
   "description": "Local real-time dashboard for Codex project tasks, goals, plans, and automations.",
   "author": {
     "name": "IHOPE"
