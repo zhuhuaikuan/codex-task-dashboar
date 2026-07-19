@@ -59,6 +59,7 @@ function render() {
   renderMetrics();
   renderProjects();
   renderTasks();
+  renderConfirmationQueue();
   renderTimeline();
   renderInspector();
 }
@@ -86,7 +87,7 @@ function renderMetrics() {
 
   setText(".ctd-stat.live .ctd-stat-note", `${metrics.totalTasks} 条本地任务快照`);
   setText(".ctd-stats .ctd-stat:nth-child(2) .ctd-stat-note", `${metrics.plannedItems} 个计划步骤`);
-  setText(".ctd-stat.warn .ctd-stat-note", `${metrics.attentionTasks} 条需要关注`);
+  setText(".ctd-stat.warn .ctd-stat-note", `${metrics.attentionTasks} 条需要关注 / ${metrics.confirmationTasks ?? 0} 待确认`);
   setText(".ctd-stats .ctd-stat:nth-child(4) .ctd-stat-note", state.snapshot.automations[0]?.name ?? "暂无自动化");
   setText(".ctd-last-poll", `Last poll ${formatTime(state.snapshot.generatedAt)}`);
 }
@@ -146,9 +147,37 @@ function renderTasks() {
       </td>
       <td><span class="ctd-status ${statusClass[task.status] ?? "idle"}"><span class="ctd-dot ${statusDot[task.status] ?? "blue"}"></span>${escapeHtml(task.statusLabel)}</span></td>
       <td>${escapeHtml(task.latestTool)} ${escapeHtml(task.toolStatus)}</td>
-      <td><div class="ctd-progress"><span style="width:${clamp(task.progress, 0, 100)}%"></span></div></td>
+      <td>
+        <div class="ctd-progress-cell">
+          <div class="ctd-progress"><span style="width:${clamp(task.progress, 0, 100)}%"></span></div>
+          <span class="ctd-report-source ${escapeAttr(reportSourceClass(task))}">${escapeHtml(reportSourceLabel(task))}</span>
+        </div>
+      </td>
       <td><div class="ctd-feed">${escapeHtml(task.latestHeartbeat)}</div></td>
     </tr>
+  `).join("");
+}
+
+function renderConfirmationQueue() {
+  const queue = root.querySelector(".ctd-confirmation-queue");
+  if (!queue) return;
+
+  const items = state.snapshot.confirmationQueue ?? [];
+  queue.classList.toggle("is-empty", !items.length);
+  if (!items.length) {
+    queue.innerHTML = "";
+    return;
+  }
+
+  queue.innerHTML = items.slice(0, 4).map((item) => `
+    <button type="button" class="ctd-confirmation-card ${escapeAttr(item.state)}" data-task-id="${escapeAttr(item.taskId)}">
+      <div class="ctd-row-between">
+        <strong>${escapeHtml(confirmationStateLabel(item.state))}</strong>
+        <span class="ctd-pill"><span class="ctd-dot ${item.state === "open" ? "amber" : "blue"}"></span>${escapeHtml(confirmationTypeLabel(item.type))}</span>
+      </div>
+      <div class="ctd-confirmation-prompt">${escapeHtml(item.prompt)}</div>
+      <div class="ctd-row-between ctd-small"><span>${escapeHtml(item.projectName)}</span><span>${escapeHtml(formatTime(item.createdAt))}</span></div>
+    </button>
   `).join("");
 }
 
@@ -207,6 +236,25 @@ function renderInspector() {
 
 function renderAttentionBlock(block, task) {
   if (!block) return;
+  const confirmation = task.confirmation;
+  const hasOpenConfirmation = confirmation?.state === "open";
+  block.className = `ctd-inspector-block ${hasOpenConfirmation || task.status === "attention" ? "alert" : ""}`;
+
+  if (confirmation) {
+    block.innerHTML = `
+      <div class="ctd-section-title" style="margin:0;">
+        <h3>${hasOpenConfirmation ? "待确认" : "确认记录"}</h3>
+        <span class="ctd-pill"><span class="ctd-dot ${hasOpenConfirmation ? "amber" : "blue"}"></span>${escapeHtml(confirmationStateLabel(confirmation.state))}</span>
+      </div>
+      <div class="ctd-confirmation-prompt">${escapeHtml(confirmation.prompt)}</div>
+      <div class="ctd-row-between ctd-small">
+        <span>${escapeHtml(confirmationTypeLabel(confirmation.type))}</span>
+        <span>${escapeHtml(formatTime(confirmation.createdAt))}</span>
+      </div>
+    `;
+    return;
+  }
+
   block.innerHTML = `
     <div class="ctd-section-title" style="margin:0;">
       <h3>注意事项</h3>
@@ -300,7 +348,7 @@ function filteredTasks() {
   return state.snapshot.tasks.filter((task) => {
     if (state.projectScoped && state.selectedProjectId && task.cwd !== state.selectedProjectId) return false;
     if (!query) return true;
-    return [task.title, task.projectName, task.cwd, task.latestHeartbeat, task.latestCommand]
+    return [task.title, task.projectName, task.cwd, task.latestHeartbeat, task.latestCommand, task.confirmation?.prompt, task.reportSource]
       .some((value) => String(value ?? "").toLowerCase().includes(query));
   });
 }
@@ -392,6 +440,44 @@ function nextAutomationLabel(automation) {
 
 function nextPlanStep(task) {
   return task.planSteps.find((step) => step.state !== "done") ?? null;
+}
+
+function reportSourceClass(task) {
+  const source = task.reportSource === "self-reported" ? "self" : "inferred";
+  return `${source} ${task.reportFreshness ?? ""}`.trim();
+}
+
+function reportSourceLabel(task) {
+  if (task.reportSource === "self-reported") {
+    return `self · ${freshnessLabel(task.reportFreshness)}`;
+  }
+  return "inferred";
+}
+
+function freshnessLabel(value) {
+  if (value === "fresh") return "fresh";
+  if (value === "quiet") return "quiet";
+  if (value === "stale") return "stale";
+  if (value === "complete") return "complete";
+  return "inferred";
+}
+
+function confirmationStateLabel(value) {
+  if (value === "open") return "待确认";
+  if (value === "answered") return "已回复";
+  if (value === "resolved") return "已解决";
+  if (value === "superseded") return "已覆盖";
+  return "确认点";
+}
+
+function confirmationTypeLabel(value) {
+  if (value === "approval") return "批准";
+  if (value === "choice") return "选择";
+  if (value === "clarification") return "澄清";
+  if (value === "permission") return "授权";
+  if (value === "credentials") return "凭证";
+  if (value === "review") return "审阅";
+  return "确认";
 }
 
 function uniqueCount(values) {

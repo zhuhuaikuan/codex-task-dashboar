@@ -68,4 +68,16 @@ describe("server", () => {
       assert.match(html, /grid-template-rows:\s*132px 64px auto 1fr/);
     });
   });
+
+  it("serves confirmation and self-report UI contracts", async () => {
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/`);
+      const html = await response.text();
+
+      assert.equal(response.status, 200);
+      assert.match(html, /ctd-confirmation-queue/);
+      assert.match(html, /ctd-confirmation-card/);
+      assert.match(html, /ctd-report-source/);
+    });
+  });
 });

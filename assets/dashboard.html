@@ -540,6 +540,33 @@
       background: linear-gradient(90deg, var(--ctd-green), var(--ctd-blue));
     }
 
+    #codex-task-dashboard-mockup .ctd-progress-cell {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    #codex-task-dashboard-mockup .ctd-report-source {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      width: max-content;
+      max-width: 100%;
+      color: var(--ctd-muted);
+      font-size: 10px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    #codex-task-dashboard-mockup .ctd-report-source.self {
+      color: #1f6643;
+    }
+
+    #codex-task-dashboard-mockup .ctd-report-source.stale,
+    #codex-task-dashboard-mockup .ctd-report-source.quiet {
+      color: #7d4b0c;
+    }
+
     #codex-task-dashboard-mockup .ctd-feed {
       color: var(--ctd-muted);
       overflow: hidden;
@@ -554,7 +581,52 @@
       background: #fbfcf7;
       min-height: 0;
       display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+    }
+
+    #codex-task-dashboard-mockup .ctd-confirmation-queue {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    #codex-task-dashboard-mockup .ctd-confirmation-queue.is-empty {
+      display: none;
+    }
+
+    #codex-task-dashboard-mockup .ctd-confirmation-card {
+      border: 1px solid var(--ctd-line);
+      background: var(--ctd-panel);
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      padding: 10px 12px;
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+      cursor: pointer;
+    }
+
+    #codex-task-dashboard-mockup .ctd-confirmation-card.open {
+      border-color: rgba(182, 111, 22, .42);
+      background: linear-gradient(180deg, #fffefa, var(--ctd-amber-soft));
+      box-shadow: inset 3px 0 0 var(--ctd-amber);
+    }
+
+    #codex-task-dashboard-mockup .ctd-confirmation-card.answered {
+      border-color: rgba(53, 121, 168, .28);
+      background: var(--ctd-blue-soft);
+    }
+
+    #codex-task-dashboard-mockup .ctd-confirmation-prompt {
+      color: var(--ctd-text);
+      font-size: 12px;
+      line-height: 1.35;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
 
     #codex-task-dashboard-mockup .ctd-timeline-head {
@@ -898,6 +970,7 @@
             </div>
             <span class="ctd-pill ctd-window-label">本地快照窗口</span>
           </div>
+          <div class="ctd-confirmation-queue is-empty" aria-live="polite"></div>
           <div class="ctd-timeline-head">
             <span>项目 / 任务</span>
             <span>18:00</span><span>21:00</span><span>00:00</span><span>03:00</span><span>06:00</span><span>09:00</span>
