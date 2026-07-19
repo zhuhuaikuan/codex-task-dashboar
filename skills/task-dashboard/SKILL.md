@@ -16,9 +16,49 @@ state from:
 - `%USERPROFILE%\.codex\sessions`
 - `%USERPROFILE%\.codex\process_manager\chat_processes.json`
 - `%USERPROFILE%\.codex\automations`
+- `%USERPROFILE%\.codex\task-dashboard\progress.jsonl`
 
 It does not call private Codex app-only thread tools from the browser. Treat the
-status as an inferred local observer view.
+status as a local observer view with optional self-reported progress.
+
+## Lightweight Progress Reporting
+
+When this dashboard is being used to monitor active work, report progress at
+meaningful state changes. Do not write timer-based heartbeats. Keep reports
+short and never include secrets, long command output, or private file contents.
+
+Use the helper from the plugin root:
+
+```powershell
+node scripts\report-progress.mjs --kind task_started --thread-id <thread-id> --status planning --progress 5 --summary "Started the task and drafted the first plan."
+```
+
+Report changed progress:
+
+```powershell
+node scripts\report-progress.mjs --kind progress --thread-id <thread-id> --status running --progress 55 --summary "Merged reported state into the snapshot."
+```
+
+Report a confirmation point that needs the user:
+
+```powershell
+node scripts\report-progress.mjs --kind blocked --thread-id <thread-id> --status blocked --needs-user --needs-confirmation --confirmation-type approval --confirmation-prompt "Approve pushing this version?"
+```
+
+Resolve the confirmation after the user replies:
+
+```powershell
+node scripts\report-progress.mjs --kind progress --thread-id <thread-id> --status running --resolve-confirmation --confirmation-resolution "User approved pushing the version."
+```
+
+Useful report moments:
+
+- task start;
+- plan update;
+- step started or completed;
+- user confirmation, permission, choice, clarification, or credentials needed;
+- verification started;
+- completion or failure.
 
 ## Open The Dashboard
 

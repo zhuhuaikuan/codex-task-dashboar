@@ -11,6 +11,8 @@ The UI intentionally follows the approved high-fidelity design at:
 - Project-level task health and live-ish status counts
 - Recent task heartbeats inferred from local Codex session files
 - Goal/plan progress summaries and tasks that need attention
+- Lightweight self-reported progress from Codex tasks
+- Confirmation points that need, received, or no longer need a user reply
 - Local automation schedule signals
 - A four-lane schedule view that matches the approved design proportions
 
@@ -35,9 +37,36 @@ The first version is a local observer. It reads:
 - `%USERPROFILE%\.codex\sessions/**/*.jsonl`
 - `%USERPROFILE%\.codex\process_manager\chat_processes.json`
 - `%USERPROFILE%\.codex\automations/**/automation.toml`
+- `%USERPROFILE%\.codex\task-dashboard\progress.jsonl`
 
-The dashboard infers status from recent heartbeats and command records. It does
+The dashboard infers status from recent heartbeats and command records, then
+overlays optional self-reported progress from the local progress ledger. It does
 not mutate Codex tasks.
+
+## Lightweight Progress Reports
+
+Codex tasks can voluntarily append short progress events when state changes
+meaningfully. This is intentionally not a fixed heartbeat timer.
+
+```powershell
+node scripts\report-progress.mjs --kind progress --thread-id thread-id --status running --progress 55 --summary "Merged progress reports into the snapshot."
+```
+
+When a task needs a user reply, report it explicitly:
+
+```powershell
+node scripts\report-progress.mjs --kind blocked --thread-id thread-id --status blocked --needs-user --needs-confirmation --confirmation-type approval --confirmation-prompt "Approve pushing this version?"
+```
+
+Resolve it after the user answers:
+
+```powershell
+node scripts\report-progress.mjs --kind progress --thread-id thread-id --status running --resolve-confirmation --confirmation-resolution "User approved pushing the version."
+```
+
+The dashboard also scans recent history for clear approval, review,
+permission, choice, clarification, and credential requests. These appear as
+`open`, `answered`, `resolved`, or `superseded` confirmation points.
 
 ## Verify
 
