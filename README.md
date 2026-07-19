@@ -6,6 +6,14 @@ The UI intentionally follows the approved high-fidelity design at:
 
 `C:\Users\IHOPE\.codex\visualizations\2026\07\19\019f798d-e2aa-7bb0-b7c7-5485d4292a6f\codex-task-dashboard.html`
 
+## What It Shows
+
+- Project-level task health and live-ish status counts
+- Recent task heartbeats inferred from local Codex session files
+- Goal/plan progress summaries and tasks that need attention
+- Local automation schedule signals
+- A four-lane schedule view that matches the approved design proportions
+
 ## Launch
 
 ```powershell
